@@ -1,108 +1,84 @@
-# TurboWarp Desktop
+# CYSO Editor Desktop
 
-TurboWarp as a desktop app.
+CYSO Editor 的桌面客户端。基于 [TurboWarp Desktop](https://github.com/TurboWarp/desktop) 与 [LLK/scratch-desktop](https://github.com/LLK/scratch-desktop) 深度定制，内置 Aurora 主题、CYSO Core 权限与安全模块、高扩展性的自定义打包器。
 
-If you're looking for downloads, head to: https://desktop.turbowarp.org/
+CYSO Editor 是一个视觉化编程编辑器，支持将项目打包为 HTML / ZIP / 可执行程序，并通过 CYSO Core 对扩展访问系统资源进行细粒度权限控制。
 
-Licensed under the GPLv3.0. See LICENSE for more information.
+## 主要特性
 
-Parts of this repository are based on [LLK/scratch-desktop](https://github.com/LLK/scratch-desktop).
+- **Aurora 主题**：为编辑器界面提供全新的 Aurora 视觉主题。
+- **CYSO Core 安全模块**：扩展访问文件、命令、硬件、屏幕等资源时按权限模型授权，拦截危险命令与危险路径。
+- **自定义打包器**：内置基于 Turbowarp Packager 定制的打包器，支持自定义脚手架。
+- **跨平台**：Windows / macOS / Linux 均可构建运行。
 
-## Website
+## 开发
 
-The website source code is in the `docs` folder.
-
-## Development
-
-We use submodules, so clone using:
+项目使用 submodule 管理组件仓库：
 
 ```bash
-git clone --recursive https://github.com/TurboWarp/desktop turbowarp-desktop
+git clone --recursive https://github.com/CYSO-Editor/desktop.git cysoeditor-desktop
 ```
 
-or run this after cloning:
+或克隆后执行：
 
 ```bash
 git submodule init
 git submodule update
 ```
 
-Install dependencies using:
+安装依赖：
 
 ```bash
 npm ci
 ```
 
-Then fetch extra library, packager, and extension files using:
+拉取额外的 library、packager、extension 文件：
 
 ```bash
 npm run fetch
 ```
 
-Repeat the three previous sets of commands every time you pull changes from GitHub.
+> 每次从 GitHub 拉取更新后，建议重复上述三组命令。
 
-Due to the security requirements mandated by custom extensions existing, our desktop app is significantly more complicated than Scratch's.
+### 源码结构
 
- - **src-main** is what runs in Electron's main process. There is no build step; this code is included as-is. `src-main/entrypoint.js` is the entry point to the entire app.
- - **src-renderer-webpack** runs in an Electron renderer process to make the editor work. This is built by webpack as **dist-renderer-webpack**.
- - **src-renderer** also runs in an Electron renderer process, but without webpack. This is used for things like the privacy policy window.
- - **src-preload** runs as preload scripts in an Electron renderer process. They export glue functions to allow renderer and main to talk to each other in a somewhat controlled manner.
- - **dist-library-files** and **dist-extensions** contain additional static resources managed by `npm run fetch`
+由于自定义扩展的安全要求，本应用比 Scratch 官方桌面端更复杂：
 
-To build the webpack portions in src-renderer-webpack for development builds, run this:
+- **src-main**：Electron 主进程代码，无需构建，`src-main/entrypoint.js` 是整个应用的入口。
+- **src-renderer-webpack**：Electron 渲染进程（编辑器），由 webpack 构建为 **dist-renderer-webpack**。
+- **src-renderer**：Electron 渲染进程（无 webpack），用于隐私政策窗口等。
+- **src-preload**：渲染进程 preload 脚本，提供主进程与渲染进程间的受控通信。
+- **dist-library-files** / **dist-extensions**：`npm run fetch` 管理的静态资源。
+
+### 开发构建
 
 ```bash
+# 编译 webpack 部分（开发版）
 npm run webpack:compile
-```
 
-You can also run this instead for source file changes to immediately trigger rebuilds:
-
-```bash
+# 监听源文件变化即时重编译
 npm run webpack:watch
 ```
 
-Once you have everything compiled and fetched, you are ready to package it up for Electron. For development, start a development Electron instance with:
+编译并抓取完成后，启动开发版 Electron：
 
 ```bash
 npm run electron:start
 ```
 
-In Linux, The app icon won't work in the development version, but it will work in the packaged version.
+开发时建议开两个终端：一个运行 `npm run webpack:watch`，一个运行 `npm run electron:start`。渲染进程改动按 ctrl+R / cmd+R 刷新即可，主进程改动需重启应用。
 
-We've found that development can work pretty well if you open two terminals side-by-side and run `npm run webpack:watch` in one and `npm run electron:start` in the other. You can refresh the windows with ctrl+R or cmd+R for renderer file changes to apply, and manually restart the app for main file changes to apply.
-
-## Linux sandbox helper error
-
-On some Linux distributions, Electron will crash with the message `The SUID sandbox helper binary was found, but is not configured correctly. Rather than run without sandboxing I'm aborting now. You need to make sure that /home/.../turbowarp-desktop/node_modules/electron/dist/chrome-sandbox is owned by root and has mode 4755.`. Notably we have seen this happen on Debian 10 and earlier and Ubuntu 24.04 and later.
-
-For development, you can run these commands to enable unprivileged user namespaces until you reboot:
+### 正式发布构建
 
 ```bash
-# Enable unprivileged user namespaces.
-sudo sysctl -w kernel.unprivileged_userns_clone=1
-
-# Stop AppArmor from preventing unprivileged user namespace creation by default.
-# If your distribution does not use AppArmor then you can ignore the error.
-sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-```
-
-There are ways to make this permanent, but we don't think you should be making permanent kernel configuration changes just to develop this app. This error won't happen in the final .deb package, Flathub, or Snap Store releases.
-
-## Final production-ready builds
-
-The development version of the app will be larger and slower than the final release builds.
-
-Build an optimized version of the webpack portions with:
-
-```bash
+# 编译 webpack 优化版本
 npm run webpack:prod
 ```
 
-Then to package up the final Electron binaries, use either our build script `release-automation/build.mjs` (see [release-automation/README.md](release-automation/README.md)) or the [electron-builder CLI](https://www.electron.build/cli). Either way the final builds are saved in the `dist` folder. Here are some examples using the electron-builder CLI directly:
+然后使用 `release-automation/build.mjs`（见 [release-automation/README.md](release-automation/README.md)）或 electron-builder CLI 打包，产物保存在 `dist` 目录：
 
 ```bash
-# You can also do manual builds with electron-builder's CLI, for example:
-# Windows installer
+# Windows 安装包
 npx electron-builder --windows nsis --x64
 # macOS DMG
 npx electron-builder --mac dmg --universal
@@ -110,32 +86,19 @@ npx electron-builder --mac dmg --universal
 npx electron-builder --linux deb
 ```
 
-You can typically only package for a certain operating system while on that operating system.
+通常只能在本机系统上为对应操作系统打包。
 
-## Code signing policy
+## 组件仓库
 
-TurboWarp Desktop uses a free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
+| 仓库 | 说明 |
+|---|---|
+| [CYSO-Editor/gui](https://github.com/CYSO-Editor/gui) | 图形化用户界面 |
+| [CYSO-Editor/vm](https://github.com/CYSO-Editor/vm) | 虚拟机器（项目执行引擎） |
+| [CYSO-Editor/paint](https://github.com/CYSO-Editor/paint) | 造型编辑器 |
+| [CYSO-Editor/extensions](https://github.com/CYSO-Editor/extensions) | 扩展集合 |
+| [CYSO-Editor/packager](https://github.com/CYSO-Editor/packager) | 项目打包器 |
+| [CYSO-Editor/core](https://github.com/CYSO-Editor/core) | 权限与安全核心模块 |
 
- * Approvers:
-   * [GarboMuffin](https://github.com/GarboMuffin)
- * Privacy policy: https://desktop.turbowarp.org/privacy.html
+## License
 
-## Advanced customizations
-
-TurboWarp Desktop lets you configure custom JS and CSS without rebuilding the app.
-
-Find TurboWarp Desktop's data path by using the list below or by clicking "?" in the top right corner, then "Desktop Settings", then "Open User Data", then opening the highlighted folder, or refer to this list:
-
- - Windows (except Microsoft Store): `%APPDATA%/turbowarp-desktop`
- - Microsoft Store: Open `%LOCALAPPDATA%/Packages`, find the folder with the word `TurboWarpDesktop` in it, then open `LocalCache/Roaming/turbowarp-desktop`
- - macOS (except Mac App Store): `~/Library/Application Support/turbowarp-desktop`
- - Mac App Store: `~/Library/Containers/org.turbowarp.desktop/Data/Library/Application Support/turbowarp-desktop` (note that the `org.turbowarp.desktop` part may appear as `TurboWarp` in Finder)
- - Linux (except Flatpak and Snap): `~/.config/turbowarp-desktop`
- - Linux (Flatpak): `~/.var/app/org.turbowarp.TurboWarp/config/turbowarp-desktop`
- - Linux (Snap): `~/snap/turbowarp-desktop/current/.config/turbowarp-desktop`
-
-Create the file `userscript.js` in this folder to configure custom JS. Create the file `userstyle.css` in this folder to configure custom CSS. Completely restart TurboWarp Desktop (including all windows) to apply.
-
-## Uninstall
-
-See https://desktop.turbowarp.org/uninstall
+[GPL-3.0](./LICENSE)

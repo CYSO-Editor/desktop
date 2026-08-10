@@ -6,6 +6,15 @@ const base = {
     mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
     devtool: process.env.NODE_ENV === 'production' ? false : 'cheap-source-map',
     target: 'web',
+    resolve: {
+        modules: [
+            path.resolve(__dirname, 'node_modules'),
+            'node_modules',
+            path.resolve(__dirname, '../scratch-gui/node_modules'),
+            path.resolve(__dirname, '../scratch-vm/node_modules')
+        ],
+        symlinks: false
+    },
     module: {
         rules: [
             {
@@ -61,9 +70,14 @@ module.exports = [
         ...base,
         output: {
             path: path.resolve(__dirname, 'dist-renderer-webpack/editor/gui'),
-            filename: 'index.js'
+            filename: 'index.js',
+            publicPath: './'
         },
         entry: './src-renderer-webpack/editor/gui/index.jsx',
+        optimization: {
+            splitChunks: false,
+            runtimeChunk: false
+        },
         plugins: [
             new DefinePlugin({
                 'process.env.ROOT': '""'
@@ -84,6 +98,10 @@ module.exports = [
                         force: true
                     },
                     {
+                        from: 'node_modules/scratch-gui/static/library-assets',
+                        to: '../library-assets'
+                    },
+                    {
                         context: 'src-renderer-webpack/editor/gui/',
                         from: '*.html'
                     }
@@ -91,9 +109,21 @@ module.exports = [
             })
         ],
         resolve: {
+            modules: [
+                path.resolve(__dirname, 'node_modules'),
+                'node_modules',
+                path.resolve(__dirname, '../scratch-gui/node_modules'),
+                path.resolve(__dirname, '../scratch-vm/node_modules')
+            ],
             alias: {
                 'scratch-gui$': path.resolve(__dirname, 'node_modules/scratch-gui/src/index.js'),
                 'scratch-render-fonts$': path.resolve(__dirname, 'node_modules/scratch-gui/src/lib/tw-scratch-render-fonts'),
+                'scratch-vm$': path.resolve(__dirname, '../scratch-vm/src/index.js'),
+                'scratch-audio$': path.resolve(__dirname, '../scratch-vm/node_modules/scratch-audio/src/index.js'),
+                'scratch-render$': path.resolve(__dirname, 'node_modules/scratch-gui/node_modules/scratch-render/src/index.js'),
+                'scratch-paint$': path.resolve(__dirname, 'node_modules/scratch-paint/dist/scratch-paint.js'),
+                // Use scratch-gui's scratch-blocks, which supports procedure returns.
+                'scratch-blocks$': path.resolve(__dirname, '../scratch-gui/node_modules/scratch-blocks')
             }
         }
     },
@@ -105,6 +135,12 @@ module.exports = [
             filename: 'index.js'
         },
         entry: './src-renderer-webpack/editor/addons/index.jsx',
+        resolve: {
+            modules: [
+                path.resolve(__dirname, 'node_modules'),
+                'node_modules'
+            ]
+        },
         plugins: [
             new CopyWebpackPlugin({
                 patterns: [

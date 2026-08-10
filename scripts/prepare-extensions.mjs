@@ -11,10 +11,14 @@ const build = await builder.build();
 console.log(`Built extensions (mode: ${mode})`);
 
 const outputDirectory = pathUtil.join(import.meta.dirname, '../dist-extensions/');
-fs.rmSync(outputDirectory, {
-  recursive: true,
-  force: true,
-});
+try {
+  fs.rmSync(outputDirectory, {
+    recursive: true,
+    force: true,
+  });
+} catch (e) {
+  console.log('Could not remove existing directory, continuing...');
+}
 
 const brotliCompress = promisify(zlib.brotliCompress);
 

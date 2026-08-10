@@ -1,6 +1,6 @@
 const fsPromises = require('fs/promises');
 const path = require('path')
-const AbtractWindow = require('./abstract');
+const AbstractWindow = require('./abstract');
 const settings = require('../settings');
 const askForMediaAccess = require('../media-permissions');
 const SecurityPromptWindow = require('./security-prompt');
@@ -36,7 +36,7 @@ const getProtocol = url => {
 
 const WEB_PROTOCOLS = ['http:', 'https:'];
 
-class ProjectRunningWindow extends AbtractWindow {
+class ProjectRunningWindow extends AbstractWindow {
   handlePermissionCheck (permission, details) {
     return (
       // Autoplay audio and media device enumeration
@@ -110,22 +110,64 @@ class ProjectRunningWindow extends AbtractWindow {
       const match = parsed.href.match(/[0-9a-f]{32}\.\w{3}/i);
       if (match) {
         const md5ext = match[0];
+        console.log('[Library] Checking for local file:', md5ext);
         return listLocalFilesCached().then((localLibraryFiles) => {
+          console.log('[Library] Local files:', localLibraryFiles);
+          console.log('[Library] Including?', localLibraryFiles.includes(md5ext));
           if (localLibraryFiles.includes(md5ext)) {
+            console.log('[Library] Redirecting to tw-library://./' + md5ext);
             return callback({
               redirectURL: `tw-library://./${md5ext}`
             });
           }
+          console.log('[Library] File not found locally, allowing request to proceed');
           callback({});
         });
       }
     }
 
     if (parsed.origin === 'https://extensions.turbowarp.org') {
-      return callback({
-        // pathname always has a leading / already
-        redirectURL: `tw-extensions://.${parsed.pathname}`
-      });
+      console.log('[Extensions] Request:', parsed.pathname);
+      // Don't redirect extension metadata JSON - fetch directly from network
+      if (parsed.pathname.includes('/generated-metadata/extensions-v0.json')) {
+        console.log('[Extensions] NOT redirecting extensions-v0.json');
+        return callback({});
+      }
+      // Check if file exists locally before redirecting
+      const fs = require('fs');
+      const path = require('path');
+      const localPath = path.join(__dirname, '../../dist-extensions', parsed.pathname);
+      if (fs.existsSync(localPath) || fs.existsSync(localPath + '.br')) {
+        console.log('[Extensions] Redirecting to tw-extensions://', parsed.pathname);
+        return callback({
+          redirectURL: `tw-extensions://.${parsed.pathname}`
+        });
+      }
+      // File doesn't exist locally, fetch from network
+      console.log('[Extensions] File not found locally, allowing request to proceed');
+      return callback({});
+    }
+
+    if (parsed.origin === 'https://cysoeditor.pages.dev') {
+      console.log('[Extensions] Request (cysoeditor):', parsed.pathname);
+      // Don't redirect extension metadata JSON - fetch directly from network
+      if (parsed.pathname.includes('/generated-metadata/extensions-v0.json')) {
+        console.log('[Extensions] NOT redirecting extensions-v0.json');
+        return callback({});
+      }
+      // Check if file exists locally before redirecting
+      const fs = require('fs');
+      const path = require('path');
+      const localPath = path.join(__dirname, '../../dist-extensions', parsed.pathname);
+      if (fs.existsSync(localPath) || fs.existsSync(localPath + '.br')) {
+        console.log('[Extensions] Redirecting to tw-extensions://', parsed.pathname);
+        return callback({
+          redirectURL: `tw-extensions://.${parsed.pathname}`
+        });
+      }
+      // File doesn't exist locally, fetch from network
+      console.log('[Extensions] File not found locally, allowing request to proceed');
+      return callback({});
     }
 
     super.onBeforeRequest(details, callback);
@@ -136,11 +178,11 @@ class ProjectRunningWindow extends AbtractWindow {
 
     if (WEB_PROTOCOLS.includes(parsed.protocol)) {
       // Some third-party APIs (eg. YouTube embeds) require a non-empty referer header.
-      // The website being contacted already receives "turbowarp-desktop/x.y.z" in the user-agent so this isn't
+      // The website being contacted already receives "cysoeditor-desktop/x.y.z" in the user-agent so this isn't
       // revealing any metadata that they couldn't already have access to.
       return callback({
         requestHeaders: {
-          referer: 'https://desktop.turbowarp.org/referer.html'
+          referer: 'https://cysoeditor.pages.dev/referer.html'
         }
       });
     }

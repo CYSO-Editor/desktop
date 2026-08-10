@@ -8,6 +8,9 @@
       [splash-theme="dark"]:not(.tw-loaded) {
         background-color: #222222;
       }
+      [splash-theme="aurora"]:not(.tw-loaded) {
+        background-color: #4F8EC2;
+      }
     </style>
   </head>
   <body>
@@ -16,7 +19,18 @@
       (function () {
         let theme = localStorage.getItem('tw:theme');
         if (theme === null) {
-          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          theme = 'aurora';
+        } else {
+          try {
+            const parsed = JSON.parse(theme);
+            if (parsed.gui === 'dark' || parsed.gui === 'light' || parsed.gui === 'aurora') {
+              theme = parsed.gui;
+            } else {
+              theme = 'aurora';
+            }
+          } catch (e) {
+            theme = 'aurora';
+          }
         }
         document.body.setAttribute('splash-theme', theme);
       })();

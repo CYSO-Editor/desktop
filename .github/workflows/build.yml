@@ -1,17 +1,41 @@
-name: Build (Manual)
+name: Build
+
+# 自动构建：每次 push / PR 到 master 时自动编译打包，产物作为 Actions 工件（不发布 Release，不做签名）。
+# 也可在 Actions 页面手动点 Run workflow 运行。
+#
+# desktop 依赖 5 个本地 ../ 兄弟仓库（scratch-gui / scratch-paint / CYSO-Core / extensions / scratch-vm），
+# CI 上并不存在这些目录，因此这里把它们克隆到仓库同级目录（与本地开发布局一致）。
+# 注意：直接克隆各兄弟仓库的默认分支最新提交，不锁定具体 SHA——构建结果会随兄弟仓库更新而变化，
+# 不复现固定版本。若需要可复现构建，请改回锁定具体提交（见历史提交）。
 
 on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
+    - name: Checkout desktop
       uses: actions/checkout@v4
-      with:
-        submodules: recursive
-        persist-credentials: false
+    - name: Checkout sibling repositories
+      run: |
+        clone_sibling() {
+          local name=$1
+          echo "Cloning $name (default branch)"
+          git clone --quiet "https://github.com/CYSO-Editor/$name.git" "${{ github.workspace }}/../$name"
+        }
+        clone_sibling scratch-gui
+        clone_sibling scratch-paint
+        clone_sibling CYSO-Core
+        clone_sibling extensions
+        clone_sibling scratch-vm
     - name: Install strip-nondeterminism
       run: sudo apt-get install strip-nondeterminism
     - name: Install Node.js
@@ -19,17 +43,63 @@ jobs:
       with:
         node-version: 24
     - name: Install dependencies
-      run: npm ci --loglevel=info
+      run: npm install --no-audit --no-fund
+    - name: Install sibling dependencies
+      run: |
+        set -e
+        for name in scratch-gui scratch-paint CYSO-Core extensions scratch-vm; do
+          echo "Installing deps for $name"
+          (cd "${{ github.workspace }}/../$name" && npm install --ignore-scripts --legacy-peer-deps --no-audit --no-fund)
+        done
+    - name: Link node_modules for sibling resolution
+      run: |
+        PARENT="${{ github.workspace }}/../node_modules"
+        DESKTOP_NM="${{ github.workspace }}/node_modules"
+        mkdir -p "$PARENT"
+        # 保留 npm 在 PARENT（兄弟仓库公共父级）里提升的依赖（scratch-render / scratch-blocks /
+        # scratch-paint 等 scratch-gui 需要但未声明、由 scratch-vm 等间接带入的包），
+        # 再把 desktop 自身依赖（adm-zip 等）软链进 PARENT，使各兄弟仓库都能解析。
+        # 注意：绝不能 rm -rf PARENT，否则会删除 npm 已提升的依赖。
+        for entry in "$DESKTOP_NM"/*; do
+          b=$(basename "$entry")
+          [ -e "$PARENT/$b" ] || ln -s "$entry" "$PARENT/$b"
+        done
+    # scratch-gui 的 src/addons/*（addons / libraries / generated 等）已在仓库中提交，
+    # 无需在 CI 里 git clone TurboWarp/addons 再跑 pull.js（该克隆在 CI 上会失败且结果已提交）。
+    # 仅需 prepublish.mjs 生成仓库中未提交的 microbit-hex-url.cjs。
+    - name: Generate scratch-gui assets
+      run: |
+        cd "${{ github.workspace }}/../scratch-gui"
+        node scripts/prepublish.mjs
     - name: Fetch
       run: npm run fetch
+    - name: Build scratch-paint
+      # scratch-paint 的 package.json main 指向 ./dist/scratch-paint.js，
+      # 而 CI 用 --ignore-scripts 安装依赖跳过了其 webpack 构建，导致 dist 缺失。
+      # 这里显式构建它（复刻本地已构建的布局）。
+      run: |
+        cd "${{ github.workspace }}/../scratch-paint"
+        npm run build
+    - name: Install scratch-gui runtime peers
+      # scratch-gui 直接 import 了 scratch-render / scratch-blocks / scratch-paint，
+      # 但它们并非 scratch-gui 直接声明的依赖（由 scratch-vm 等 file: 依赖间接带入），
+      # 在 CI 的 hoist 布局下不会被放到 scratch-gui 能解析到的 node_modules 中。
+      # 这里把它们直接装进 scratch-gui/node_modules（版本对齐 scratch-vm 的声明），复刻本地可编译布局。
+      run: |
+        cd "${{ github.workspace }}/../scratch-gui"
+        npm install --no-save --legacy-peer-deps --no-audit --no-fund \
+          scratch-render@0.1.0-prerelease.20231220210403 \
+          scratch-blocks@0.1.0-prerelease.20230527085947
+        mkdir -p node_modules
+        ln -sfn "${{ github.workspace }}/../scratch-paint" node_modules/scratch-paint
     - name: Compile
       run: npm run webpack:prod
     - name: Package
       run: |
-        node release-automation/build.mjs --debian --tarball --appimage --x64 --armv7l --arm64
+        node release-automation/build.mjs --debian --tarball --appimage --x64 --arm64
     - name: Print file tree
       run: node scripts/print-file-tree.mjs dist
-    - name: Upload artifacts to GitHub Actions
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: linux
@@ -41,90 +111,190 @@ jobs:
   build-mac:
     runs-on: macos-latest
     steps:
-    - name: Checkout
+    - name: Checkout desktop
       uses: actions/checkout@v4
-      with:
-        submodules: recursive
-        persist-credentials: false
+    - name: Checkout sibling repositories
+      run: |
+        clone_sibling() {
+          local name=$1
+          echo "Cloning $name (default branch)"
+          git clone --quiet "https://github.com/CYSO-Editor/$name.git" "${{ github.workspace }}/../$name"
+        }
+        clone_sibling scratch-gui
+        clone_sibling scratch-paint
+        clone_sibling CYSO-Core
+        clone_sibling extensions
+        clone_sibling scratch-vm
     - name: Install Node.js
       uses: actions/setup-node@v4
       with:
         node-version: 24
     - name: Install dependencies
-      run: npm ci --loglevel=info
+      run: npm install --no-audit --no-fund
+    - name: Install sibling dependencies
+      run: |
+        set -e
+        for name in scratch-gui scratch-paint CYSO-Core extensions scratch-vm; do
+          echo "Installing deps for $name"
+          (cd "${{ github.workspace }}/../$name" && npm install --ignore-scripts --legacy-peer-deps --no-audit --no-fund)
+        done
+    - name: Link node_modules for sibling resolution
+      run: |
+        PARENT="${{ github.workspace }}/../node_modules"
+        DESKTOP_NM="${{ github.workspace }}/node_modules"
+        mkdir -p "$PARENT"
+        # 保留 npm 在 PARENT（兄弟仓库公共父级）里提升的依赖（scratch-render / scratch-blocks /
+        # scratch-paint 等 scratch-gui 需要但未声明、由 scratch-vm 等间接带入的包），
+        # 再把 desktop 自身依赖（adm-zip 等）软链进 PARENT，使各兄弟仓库都能解析。
+        # 注意：绝不能 rm -rf PARENT，否则会删除 npm 已提升的依赖。
+        for entry in "$DESKTOP_NM"/*; do
+          b=$(basename "$entry")
+          [ -e "$PARENT/$b" ] || ln -s "$entry" "$PARENT/$b"
+        done
+    # scratch-gui 的 src/addons/*（addons / libraries / generated 等）已在仓库中提交，
+    # 无需在 CI 里 git clone TurboWarp/addons 再跑 pull.js（该克隆在 CI 上会失败且结果已提交）。
+    # 仅需 prepublish.mjs 生成仓库中未提交的 microbit-hex-url.cjs。
+    - name: Generate scratch-gui assets
+      run: |
+        cd "${{ github.workspace }}/../scratch-gui"
+        node scripts/prepublish.mjs
     - name: Fetch
       run: npm run fetch
+    - name: Build scratch-paint
+      # scratch-paint 的 package.json main 指向 ./dist/scratch-paint.js，
+      # 而 CI 用 --ignore-scripts 安装依赖跳过了其 webpack 构建，导致 dist 缺失。
+      # 这里显式构建它（复刻本地已构建的布局）。
+      run: |
+        cd "${{ github.workspace }}/../scratch-paint"
+        npm run build
+    - name: Install scratch-gui runtime peers
+      # scratch-gui 直接 import 了 scratch-render / scratch-blocks / scratch-paint，
+      # 但它们并非 scratch-gui 直接声明的依赖（由 scratch-vm 等 file: 依赖间接带入），
+      # 在 CI 的 hoist 布局下不会被放到 scratch-gui 能解析到的 node_modules 中。
+      # 这里把它们直接装进 scratch-gui/node_modules（版本对齐 scratch-vm 的声明），复刻本地可编译布局。
+      run: |
+        cd "${{ github.workspace }}/../scratch-gui"
+        npm install --no-save --legacy-peer-deps --no-audit --no-fund \
+          scratch-render@0.1.0-prerelease.20231220210403 \
+          scratch-blocks@0.1.0-prerelease.20230527085947
+        mkdir -p node_modules
+        ln -sfn "${{ github.workspace }}/../scratch-paint" node_modules/scratch-paint
     - name: Compile
       run: npm run webpack:prod
     - name: Package
       run: |
-        # Need to run the universal builds as separate commands or it breaks when @electron/universal
-        # diffs the ASARs and finds spurious differences. Not clear why.
-        node release-automation/build.mjs --mac --universal --production
-        node release-automation/build.mjs --mac-legacy-11 --universal --production
-        node release-automation/build.mjs --mac-legacy-10.13-10.14 --mac-legacy-10.15 --x64
+        # fsevents（仅 macOS 的原生依赖，经 watchpack-chokidar2 间接引入）无法针对 Electron 40 的
+        # Node 头文件编译，且打包后的应用运行时并不需要它。打包前删除它，避免 electron-builder 重建失败。
+        find "${{ github.workspace }}" -name fsevents -type d -prune -exec rm -rf {} + 2>/dev/null || true
+        find "${{ github.workspace }}/.." -name fsevents -type d -prune -exec rm -rf {} + 2>/dev/null || true
+        node release-automation/build.mjs --mac --universal
     - name: Print file tree
       run: node scripts/print-file-tree.mjs dist
-    - name: Upload artifacts to GitHub Actions
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: mac
         path: dist/*.dmg
 
   build-windows:
-    # GitHub's Windows runners have a C: drive and a D: drive.
-    # C: is for the OS and has good read performance but awful write performance.
-    # D: has much better faster write performance (>20x faster than C:)
-    # We want to use the D: drive whenever we can. Trying to do "npm ci" on the C:
-    # drive has been observed to take over an hour!
     runs-on: windows-latest
     steps:
-    # actions/checkout can only clone to paths in $GITHUB_WORKSPACE which is on the C: drive,
-    # so we have to clone to C: then copy to D: after. This repository itself isn't huge so
-    # this is plenty fast.
-    - name: Checkout
+    - name: Checkout desktop
       uses: actions/checkout@v4
       with:
-        submodules: recursive
-        persist-credentials: false
         path: repo
-    - name: "Move repository to D: drive"
+    - name: Move repository to D drive
       run: |
         Copy-Item -Path repo -Destination D:\repo -Recurse
         Remove-Item -Path repo -Recurse -Force
+    - name: Checkout sibling repositories
+      shell: pwsh
+      run: |
+        $sibs = @('scratch-gui','scratch-paint','CYSO-Core','extensions','scratch-vm')
+        foreach ($name in $sibs) {
+          $dest = "D:\$name"
+          Write-Host "Cloning $name (default branch) -> $dest"
+          git clone --quiet "https://github.com/CYSO-Editor/$name.git" $dest
+        }
+    - name: Configure npm to use D drive
+      run: |
+        npm config set cache D:\npm-cache
+        npm config set prefix D:\npm-prefix
     - name: Install Node.js
       uses: actions/setup-node@v4
       with:
         node-version: 24
-    # The repository being on D: means that node_modules IO will be fast, but npm still downloads
-    # packages to a temporary folder for caching which is on C: by default. We need to make sure
-    # npm uses the D: drive instead otherwise we still get bottlenecked by C:.
-    - name: "Configure npm to use D: drive"
-      run: |
-        npm config set cache D:\npm-cache
-        npm config set prefix D:\npm-prefix
     - name: Install dependencies
       working-directory: D:\repo
-      run: npm ci --loglevel=info
+      run: npm install --no-audit --no-fund
+    - name: Install sibling dependencies
+      shell: pwsh
+      run: |
+        foreach ($name in @('scratch-gui','scratch-paint','CYSO-Core','extensions','scratch-vm')) {
+          $dir = "D:\$name"
+          Write-Host "Installing deps for $name in $dir"
+          Push-Location $dir
+          npm install --ignore-scripts --legacy-peer-deps --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { throw "npm install failed for $name" }
+          Pop-Location
+        }
+    - name: Link node_modules for sibling resolution
+      shell: pwsh
+      run: |
+        $Parent = "D:\node_modules"
+        $DesktopNM = "D:\repo\node_modules"
+        if (-not (Test-Path $Parent)) { New-Item -ItemType Directory -Path $Parent | Out-Null }
+        # 保留 npm 在 D:\node_modules（兄弟仓库公共父级）里提升的依赖（scratch-render 等），
+        # 再把 desktop 自身依赖（adm-zip 等）以联接(junction)并入，使各兄弟仓库都能解析。
+        foreach ($item in Get-ChildItem $DesktopNM) {
+          $target = Join-Path $Parent $item.Name
+          if (-not (Test-Path $target)) {
+            cmd /c "mklink /J `"$target`" `"$($item.FullName)`""
+          }
+        }
+    # scratch-gui 的 src/addons/* 已提交，无需 pull.js（其 git clone 在 CI 上会失败）。仅生成 microbit 资源。
+    - name: Generate scratch-gui assets
+      shell: pwsh
+      run: |
+        Push-Location D:\scratch-gui
+        node scripts/prepublish.mjs
+        Pop-Location
     - name: Fetch
       working-directory: D:\repo
       run: npm run fetch
+    - name: Build scratch-paint
+      shell: pwsh
+      # scratch-paint 的 main 指向 ./dist/scratch-paint.js，需先构建（CI 跳过了其构建脚本）。
+      run: |
+        Push-Location D:\scratch-paint
+        npm run build
+        Pop-Location
+    - name: Install scratch-gui runtime peers
+      shell: pwsh
+      # scratch-gui 直接 import 了未声明的 scratch-render / scratch-blocks / scratch-paint，
+      # 需直接装进 scratch-gui/node_modules（版本对齐 scratch-vm 的声明）以复刻本地布局。
+      run: |
+        Push-Location D:\scratch-gui
+        npm install --no-save --legacy-peer-deps --no-audit --no-fund `
+          scratch-render@0.1.0-prerelease.20231220210403 `
+          scratch-blocks@0.1.0-prerelease.20230527085947
+        New-Item -ItemType Directory -Force -Path node_modules | Out-Null
+        if (Test-Path node_modules\scratch-paint) { Remove-Item node_modules\scratch-paint -Force -Recurse }
+        cmd /c "mklink /J node_modules\scratch-paint ..\scratch-paint"
+        Pop-Location
     - name: Compile
       working-directory: D:\repo
       run: npm run webpack:prod
     - name: Package
       working-directory: D:\repo
       run: |
-        node release-automation/build.mjs --windows --microsoft-store --x64 --ia32 --arm64
-        node release-automation/build.mjs --windows-portable --x64
-        node release-automation/build.mjs --windows-legacy --ia32 --x64
+        node release-automation/build.mjs --windows --x64 --arm64
+        node release-automation/build.mjs --windows-portable --x64 --arm64
     - name: Print file tree
       working-directory: D:\repo
       run: node scripts/print-file-tree.mjs dist
-    - name: Upload artifacts to GitHub Actions
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: windows
-        path: |
-          D:\repo\dist\*.exe
-          D:\repo\dist\*.appx
+        path: D:\repo\dist\*.exe
