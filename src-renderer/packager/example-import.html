@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      iframe {
+        display: block;
+      }
+    </style>
+    <meta name="robots" content="noindex">
+  </head>
+  <body>
+    <p>Iframe:</p>
+    <iframe width="600" height="600"></iframe>
+
+    <p>
+      <a href="" target="_blank" rel="opener">Open packager in new tab</a>
+    </p>
+
+    <script>
+      const frame = document.querySelector('iframe');
+      const link = document.querySelector('a');
+
+      const url = `/?import_from=${location.origin}`;
+      frame.src = url;
+      link.href = url;
+
+      const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+      // In production, the expected origin is 'https://packager.turbowarp.org'
+      const expectedOrigin = location.origin;
+
+      window.addEventListener('message', async (e) => {
+        if (e.origin !== expectedOrigin) {
+          return;
+        }
+
+        const data = e.data && e.data.p4;
+        if (!data) {
+          return;
+        }
+
+        if (data.type === 'ready-for-import') {
+          e.source.postMessage({
+            p4: {
+              type: 'start-import'
+            }
+          }, expectedOrigin);
+
+          await sleep(Math.random() * 2000);
+
+          const res = await fetch('./example.sb3');
+          const buffer = await res.arrayBuffer();
+          e.source.postMessage({
+            p4: {
+              type: 'finish-import',
+              data: buffer,
+              name: 'example.sb3'
+            }
+          }, expectedOrigin, [buffer]);
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -25,16 +25,21 @@ export const computeSHA256 = (buffer) => nodeCrypto
  */
 export const persistentFetch = async (url, opts) => {
   let err;
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 5; i++) {
     try {
-      const response = await fetch(url, opts);
+      const response = await fetch(url, {
+        ...opts,
+        timeout: 30000 // 30秒超时
+      });
       if (response.status !== 200) {
-        throw new Error(`${md5ext}: Unexpected status code: ${response.status}`);
+        throw new Error(`Unexpected status code: ${response.status}`);
       }
       return response;
     } catch (e) {
       if (i === 0) err = e;
       console.warn(`Attempt to fetch ${url} failed, trying again...`);
+      // 每次重试前等待一段时间
+      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
     }
   }
   throw err;

@@ -16,7 +16,7 @@
         box-sizing: border-box;
         width: 100%;
         min-height: 100vh;
-        border: 20px solid hsla(0, 100%, 65%, 1);
+        border: 20px solid hsla(187, 75%, 55%, 1);
       }
       pre {
         font-size: inherit;
@@ -29,15 +29,15 @@
   </head>
   <body>
     <main>
-      <h1>TurboWarp Desktop <span class="version"></span></h1>
+      <h1>CYSOEditor <span class="version"></span></h1>
       <p class="more-version"></p>
       <script>
         var info = AboutPreload.getInfo();
-        document.querySelector('.version').textContent = info.version;
+        document.querySelector('.version').textContent = 'v' + info.version;
         document.querySelector('.more-version').textContent = `(Debug info: Electron ${info.electron}, Platform ${info.platform} ${info.arch}, Distribution ${info.dist})`;
       </script>
-      <p>TurboWarp is a better offline editor for Scratch 3. Learn more at <a href="https://desktop.turbowarp.org/">https://desktop.turbowarp.org/</a>.</p>
-      <p>TurboWarp Desktop is licensed under the GNU General Public License v3.0. The source code is published <a href="https://github.com/TurboWarp/" target="_blank" rel="noreferrer">on GitHub</a>. You can read the license below:</p>
+      <p>CYSOEditor 是一款基于 Scratch 的可视化编程编辑器，由 CY Studio 开发。采用 Aurora 极光主题设计，集成 CYSO Core 权限系统与高性能编译器引擎。了解更多请访问 <a href="https://cysoeditor.pages.dev/">https://cysoeditor.pages.dev/</a>。</p>
+      <p>CYSOEditor 基于 GNU General Public License v3.0 许可证开源发布。源代码已发布在 <a href="https://github.com/cyso-editor" target="_blank" rel="noreferrer">GitHub</a> 上。您可以阅读以下许可证全文：</p>
       <pre>
                     GNU GENERAL PUBLIC LICENSE
                         Version 3, 29 June 2007

@@ -1,30 +1,46 @@
 {
-  "name": "turbowarp-desktop",
-  "description": "Scratch mod with a compiler, dark mode, a bunch of addons, and more.",
-  "version": "1.15.2",
+  "name": "cysoeditor-desktop",
+  "description": "CYSOEditor - Visual programming editor with Aurora theme, CYSO Core, and high-performance compiler engine.",
+  "version": "1.0.0",
   "license": "GPL-3.0",
   "author": {
-    "email": "contact@turbowarp.org",
-    "name": "Thomas Weber"
+    "email": "cy_studio_001@163.com",
+    "name": "CY Studio"
   },
   "type": "commonjs",
   "scripts": {
     "fetch": "node scripts/download-library-files.mjs && node scripts/download-packager.mjs && node scripts/prepare-extensions.mjs",
-    "webpack:compile": "webpack",
-    "webpack:watch": "webpack --watch",
-    "webpack:prod": "cross-env NODE_ENV=production webpack",
+    "webpack:compile": "cross-env NODE_ENV=production webpack --config webpack.config.cjs",
+    "webpack:watch": "webpack --config webpack.config.cjs --watch",
+    "webpack:prod": "cross-env NODE_ENV=production webpack --config webpack.config.cjs",
     "electron:start": "electron src-main/entrypoint.js",
     "electron:package:dir": "electron-builder --dir"
   },
   "dependencies": {
-    "semver": "^7.7.3"
+    "graceful-fs": "^4.2.11",
+    "prop-types": "^15.8.1",
+    "react": "^16.0.0",
+    "react-dom": "^16.0.0",
+    "react-redux": "^5.0.7",
+    "redux": "^3.7.2",
+    "scratch-blocks": "^1.3.0",
+    "semver": "^7.7.3",
+    "scratch-paint": "../scratch-paint",
+    "cyso-core": "../CYSO-Core",
+    "@turbowarp/json": "0.1.2",
+    "@turbowarp/jszip": "3.12.0",
+    "@turbowarp/nanolog": "1.0.1",
+    "@turbowarp/scratch-l10n": "3.1001.202405101234",
+    "@turbowarp/scratch-storage": "0.0.202505311821",
+    "@turbowarp/scratch-svg-renderer": "1.1.0",
+    "@turbowarp/startaudiocontext": "1.0.0"
   },
   "devDependencies": {
     "@babel/core": "^7.28.4",
     "@babel/preset-env": "^7.12.16",
     "@babel/preset-react": "^7.13.13",
     "@electron/fuses": "^2.0.0",
-    "@turbowarp/extensions": "github:TurboWarp/extensions#master",
+    "@turbowarp/extensions": "../extensions",
     "adm-zip": "^0.5.16",
     "autoprefixer": "^9.8.8",
     "babel-loader": "^8.4.1",
@@ -38,35 +54,40 @@
     "postcss-import": "^14.0.0",
     "postcss-loader": "^4.2.0",
     "postcss-simple-vars": "^6.0.3",
-    "scratch-gui": "github:TurboWarp/scratch-gui#develop",
+    "scratch-gui": "../scratch-gui",
     "style-loader": "^0.23.0",
     "url-loader": "^4.1.1",
     "webpack": "4.47.0",
-    "webpack-cli": "^4.10.0"
+    "webpack-cli": "^3.3.12"
   },
   "overrides": {
     "webpack@4.47.0": {
       "terser-webpack-plugin": "^4.2.3"
     }
   },
-  "homepage": "https://desktop.turbowarp.org/",
+  "homepage": "https://cysoeditor.pages.dev/",
   "repository": {
     "type": "git",
-    "url": "https://github.com/TurboWarp/desktop.git"
+    "url": "https://github.com/CYSO-Editor/desktop.git"
   },
   "bugs": {
-    "url": "https://github.com/TurboWarp/desktop/issues",
-    "email": "contact@turbowarp.org"
+    "url": "https://github.com/CYSO-Editor/desktop/issues",
+    "email": "cy_studio_001@163.com"
   },
   "main": "./src-main/entrypoint.js",
   "build": {
-    "appId": "org.turbowarp.desktop",
-    "productName": "TurboWarp",
+    "appId": "org.cysoeditor.desktop",
+    "productName": "CYSOEditor",
+    "copyright": "Copyright © 2024-2026 CY Studio. Licensed under GPL-3.0",
+    "forceCodeSigning": false,
     "files": [
       "node_modules/**/*",
       "src-main/**/*",
       "src-preload/**/*",
       "src-renderer/**/*",
+      "src-renderer/packager/standalone.html",
+      "src-renderer/packager/scaffolding/scaffolding-min.js",
+      "src-renderer/packager/scaffolding/scaffolding-full.js",
       "dist-renderer-webpack/**/*",
       "dist-library-files/**/*",
       "dist-extensions/**/*"
@@ -97,18 +118,17 @@
     },
     "appx": {
       "artifactName": "${productName}-MS-Store-${version}-${arch}.${ext}",
-      "applicationId": "TurboWarp",
-      "displayName": "TurboWarp",
-      "identityName": "45747ThomasWeber.TurboWarpDesktop",
+      "applicationId": "CYSOEditor",
+      "displayName": "CYSOEditor",
+      "identityName": "45747CYStudio.CYSOEditorDesktop",
       "publisher": "CN=18FA7D4F-01BF-49F2-BF56-782DCEA49C69",
-      "publisherDisplayName": "Thomas Weber",
-      "backgroundColor": "#4c97ff",
+      "publisherDisplayName": "CY Studio",
+      "backgroundColor": "#32c8dc",
       "showNameOnTiles": true,
       "languages": [
+        "zh-CN",
         "en-US",
-        "nl",
-        "de",
-        "it",
+        "ja",
         "ko"
       ]
     },
@@ -116,7 +136,15 @@
       "artifactName": "${productName}-Setup-${version}-${arch}.${ext}",
       "oneClick": false,
       "deleteAppDataOnUninstall": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "CYSOEditor",
+      "uninstallDisplayName": "CYSOEditor",
+      "license": "build/license.txt"
     },
     "mac": {
       "artifactName": "${productName}-Setup-${version}.${ext}",
@@ -130,8 +158,8 @@
       "extendInfo": {
         "ITSAppUsesNonExemptEncryption": false,
         "LSMultipleInstancesProhibited": true,
-        "NSCameraUsageDescription": "This app requires camera access when using the video sensing or face sensing blocks.",
-        "NSMicrophoneUsageDescription": "This app requires microphone access when recording sounds or detecting loudness."
+        "NSCameraUsageDescription": "CYSOEditor 需要摄像头权限以支持视频侦测和面部识别积木。",
+        "NSMicrophoneUsageDescription": "CYSOEditor 需要麦克风权限以录制声音或检测响度。"
       },
       "target": [
         {
@@ -151,16 +179,16 @@
       "provisioningProfile": "build/development.provisionprofile"
     },
     "linux": {
-      "executableName": "turbowarp-desktop",
+      "executableName": "cysoeditor",
       "artifactName": "${productName}-${os}-${arch}-${version}.${ext}",
       "icon": "./build/",
-      "synopsis": "Mod of Scratch with a compiler and more features.",
-      "description": "TurboWarp is a Scratch mod with a compiler to run projects faster, dark mode for your eyes, a bunch of addons to improve the editor, and more.",
+      "synopsis": "Visual programming editor powered by CYSO Core",
+      "description": "CYSOEditor is a visual programming editor based on Scratch, featuring Aurora theme, CYSO Core permission system, high-performance compiler engine, extension ecosystem, and one-click project packaging.",
       "category": "Development",
       "desktop": {
         "entry": {
-          "StartupWMClass": "turbowarp-desktop",
-          "Keywords": "scratch;"
+          "StartupWMClass": "cysoeditor",
+          "Keywords": "scratch;visual;programming;education;"
         }
       },
       "extraFiles": [
@@ -179,7 +207,7 @@
       ]
     },
     "snap": {
-      "summary": "Scratch mod with a compiler, dark mode, a bunch of addons, and more.",
+      "summary": "CYSOEditor - Visual programming editor with Aurora theme & CYSO Core",
       "allowNativeWayland": true,
       "plugs": [
         "default",
@@ -195,22 +223,22 @@
     "fileAssociations": [
       {
         "ext": "sb3",
-        "name": "Scratch 3 Project",
-        "description": "Scratch 3 Project",
+        "name": "CYSOEditor Project",
+        "description": "CYSOEditor Scratch 3 Project",
         "role": "Editor",
         "mimeType": "application/x.scratch.sb3"
       },
       {
         "ext": "sb2",
-        "name": "Scratch 2 Project",
-        "description": "Scratch 2 Project",
+        "name": "CYSOEditor Project (Scratch 2)",
+        "description": "CYSOEditor Scratch 2 Project",
         "role": "Editor",
         "mimeType": "application/x.scratch.sb2"
       },
       {
         "ext": "sb",
-        "name": "Scratch 1 Project",
-        "description": "Scratch 1 Project",
+        "name": "CYSOEditor Project (Scratch 1)",
+        "description": "CYSOEditor Scratch 1 Project",
         "role": "Editor",
         "mimeType": "application/x.scratch.sb"
       }

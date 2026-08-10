@@ -463,6 +463,34 @@
     "string": "The file you selected ({file}) is in a folder used internally by {APP_NAME}. It is not safe to save projects here as they can be deleted when the app updates. You must choose a different folder.",
     "developer_comment": "Message of alert that appears when someone tries to save project in a folder used internally by the app. {file} is replaced with the path and {APP_NAME} with the name of the app."
   },
+  "cyso.command-confirm.title": {
+    "string": "Confirm Command Execution",
+    "developer_comment": "Title of dialog that asks the user to confirm running a potentially dangerous command from an extension."
+  },
+  "cyso.command-confirm.message": {
+    "string": "This command may affect your system's software environment.",
+    "developer_comment": "Message of the command execution confirmation dialog."
+  },
+  "cyso.command-confirm.details": {
+    "string": "Command: {command}\n\nAre you sure you want to continue?",
+    "developer_comment": "Details of the command execution confirmation dialog. {command} is replaced with the command string."
+  },
+  "cyso.command-confirm.cancel": {
+    "string": "Cancel",
+    "developer_comment": "Button that cancels the command execution confirmation dialog."
+  },
+  "cyso.command-confirm.run": {
+    "string": "Continue",
+    "developer_comment": "Button that continues running the command in the confirmation dialog."
+  },
+  "cyso.command-blocked": {
+    "string": "Security restriction: the command is blocked because it could harm your system.",
+    "developer_comment": "Error returned to an extension when its command was blocked by the security filter."
+  },
+  "cyso.command-cancelled": {
+    "string": "The user cancelled the command.",
+    "developer_comment": "Error returned to an extension when the user cancelled the command confirmation dialog."
+  },
   "rich-presence.untitled": {
     "string": "Untitled Project",
     "developer_comment": "Appears in Discord rich presence when the current project doesn't have a name."
