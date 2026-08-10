@@ -1,16 +1,26 @@
-const {app} = require('electron');
+const {app, nativeTheme, ipcMain} = require('electron');
 
 // requestSingleInstanceLock() crashes the app in signed MAS builds
 // https://github.com/electron/electron/issues/15958
-if (!process.mas && !app.requestSingleInstanceLock()) {
-  app.exit();
+// Also may fail in sandboxed environments like TRAE
+let singleInstanceLock = true;
+try {
+  if (!process.mas) {
+    singleInstanceLock = app.requestSingleInstanceLock();
+    if (!singleInstanceLock) {
+      app.exit();
+    }
+  }
+} catch (error) {
+  console.log('Failed to request single instance lock (sandboxed environment):', error);
+  // Continue running anyway in sandboxed environments
 }
 
 const path = require('path');
 const AbstractWindow = require('./windows/abstract');
 const EditorWindow = require('./windows/editor');
 const {checkForUpdates} = require('./update-checker');
-const {tranlateOrNull} = require('./l10n');
+const {translateOrNull} = require('./l10n');
 const migrate = require('./migrate');
 const settings = require('./settings');
 require('./protocols');
@@ -18,11 +28,19 @@ require('./context-menu');
 require('./menu-bar');
 require('./crash-messages');
 
+ipcMain.on('tw-set-native-theme', (event, isDark) => {
+  nativeTheme.themeSource = isDark ? 'dark' : 'light';
+});
+
 app.enableSandbox();
 
 // Allows certain versions of Scratch Link to work without an internet connection
 // https://github.com/LLK/scratch-desktop/blob/4b462212a8e406b15bcf549f8523645602b46064/src/main/index.js#L45
 app.commandLine.appendSwitch('host-resolver-rules', 'MAP device-manager.scratch.mit.edu 127.0.0.1');
+
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+app.commandLine.appendSwitch('disable-background-timer-throttling');
 
 if (!settings.hardwareAcceleration) {
   app.disableHardwareAcceleration();
@@ -40,7 +58,6 @@ if (!settings.hardwareAcceleration) {
 
 app.on('session-created', (session) => {
   // Permission requests are delegated to AbstractWindow
-
   session.setPermissionCheckHandler((webContents, permission, requestingOrigin, details) => {
     if (!details.isMainFrame) {
       return false;
@@ -81,6 +98,9 @@ app.on('session-created', (session) => {
       // Background requests for things like loading service workers in iframes
       // are not associated with a specific webcontents, so we'll just have to
       // allow these to avoid breakage.
+      if (url.includes('extensions.turbowarp.org')) {
+        console.log('[Request Interceptor] No window for extension request, allowing');
+      }
       return callback({});
     }
 
@@ -118,7 +138,7 @@ app.on('session-created', (session) => {
 
     // Ensure that the type selector shows proper names on Windows instead of things like "SPRITE3 File"
     const extension = path.extname(item.getFilename()).replace(/^\./, '').toLowerCase();
-    const translated = tranlateOrNull(`files.${extension}`);
+    const translated = translateOrNull(`files.${extension}`);
     if (translated !== null) {
       options.filters = [
         {
@@ -221,6 +241,15 @@ const parseCommandLine = (argv) => {
 let isMigrating = true;
 let migratePromise = null;
 
+// Only reset settings if they don't exist yet
+if (Object.keys(settings.data).length === 0) {
+  // Set default settings
+  settings.updateChecker = 'never'; // Disable update checker by default
+  settings.save().catch(err => {
+    console.log('Failed to save default settings:', err);
+  });
+}
+
 app.on('second-instance', (event, argv, workingDirectory) => {
   migratePromise.then(() => {
     const commandLineOptions = parseCommandLine(argv);
@@ -242,6 +271,7 @@ app.whenReady().then(() => {
     isMigrating = false;
 
     const commandLineOptions = parseCommandLine(process.argv);
+
     EditorWindow.openFiles([
       ...filesQueuedToOpen,
       ...commandLineOptions.files

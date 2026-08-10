@@ -1,3 +1,4 @@
+const path = require('path');
 const AbstractWindow = require('./abstract');
 const ProjectRunningWindow = require('./project-running-window');
 const {translate} = require('../l10n');
@@ -26,7 +27,12 @@ class PackagerPreviewWindow extends ProjectRunningWindow {
       useContentSize: true,
       backgroundColor: '#000000',
       webPreferences: {
-        preload: null
+        nodeIntegration: false,
+        contextIsolation: true,
+        sandbox: true,
+        // 预览窗口需要加载与打包器一致的主世界 preload，否则 EditorPreload（含屏幕绘制/全局快捷键等扩展能力）缺失，
+        // 导致打包后的项目在预览中无法使用这些功能。
+        preload: path.resolve(__dirname, '../../src-preload/packager.js')
       },
       // constructor will show it
       show: false

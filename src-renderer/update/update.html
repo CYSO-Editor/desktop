@@ -16,7 +16,7 @@
         box-sizing: border-box;
         width: 100vw;
         height: 100vh;
-        border: 20px solid hsla(0, 100%, 65%, 1);
+        border: 20px solid #32c8dc;
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
@@ -170,7 +170,7 @@
         };
 
         const changelog = document.querySelector('.update-log');
-        fetch(`https://desktop.turbowarp.org/changelog.json?version=${info.latestVersion}`)
+        fetch(`https://cysoeditor.pages.dev/changelog.json?version=${info.latestVersion}`)
           .then((res) => {
             if (!res.ok) {
               throw new Error(`HTTP error ${res.status}`);
