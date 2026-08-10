@@ -42,7 +42,7 @@ class AddonsWindow extends AbstractWindow {
       await writeFileAtomic(result.filePath, settings);
     });
 
-    this.loadURL(`tw-editor://./addons/addons.html${search ? `#${search}` : ''}`);
+    this.loadURL(`cysoeditor://./addons/addons.html${search ? `#${search}` : ''}`);
   }
 
   getDimensions () {

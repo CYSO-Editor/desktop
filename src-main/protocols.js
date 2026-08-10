@@ -1,7 +1,6 @@
 const path = require('path');
 const zlib = require('zlib');
-const nodeURL = require('url');
-const {app, protocol, net} = require('electron');
+const {app, protocol} = require('electron');
 const {getDist, getPlatform} = require('./platform');
 const packageJSON = require('../package.json');
 
@@ -21,7 +20,7 @@ const packageJSON = require('../package.json');
 
 /** @type {Record<string, Metadata>} */
 const FILE_SCHEMES = {
-  'tw-editor': {
+  'cysoeditor': {
     root: path.resolve(__dirname, '../dist-renderer-webpack/editor'),
     standard: true,
     supportFetch: true,
@@ -54,10 +53,12 @@ const FILE_SCHEMES = {
   },
   'tw-extensions': {
     root: path.resolve(__dirname, '../dist-extensions'),
+    standard: true,
     supportFetch: true,
     brotli: true,
     embeddable: true,
     stream: true,
+    secure: true,
     directoryIndex: 'index.html',
     defaultExtension: '.html',
     csp: "default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; script-src 'self' 'unsafe-inline'"
@@ -91,7 +92,6 @@ MIME_TYPES.set('.cur', 'image/x-icon');
 MIME_TYPES.set('.ico', 'image/x-icon');
 MIME_TYPES.set('.mp3', 'audio/mpeg');
 MIME_TYPES.set('.mp4', 'video/mp4');
-MIME_TYPES.set('.wav', 'audio/wav');
 MIME_TYPES.set('.ogg', 'audio/ogg');
 MIME_TYPES.set('.ttf', 'font/ttf');
 MIME_TYPES.set('.otf', 'font/otf');
@@ -101,6 +101,14 @@ MIME_TYPES.set('.hex', 'application/octet-stream');
 MIME_TYPES.set('.zip', 'application/zip');
 MIME_TYPES.set('.xml', 'text/xml');
 MIME_TYPES.set('.md', 'text/markdown');
+
+const TEXT_MIME_MATCH = ['text/', 'application/javascript', 'application/json', 'application/xml'];
+for (const [ext, mime] of MIME_TYPES) {
+  const isText = TEXT_MIME_MATCH.some((prefix) => mime === prefix || mime.startsWith(prefix));
+  if (isText && !/charset=/i.test(mime)) {
+    MIME_TYPES.set(ext, `${mime}; charset=utf-8`);
+  }
+}
 
 protocol.registerSchemesAsPrivileged(Object.entries(FILE_SCHEMES).map(([scheme, metadata]) => ({
   scheme,
@@ -154,7 +162,7 @@ const createErrorPageHTML = (request, errorMessage) => `<!DOCTYPE html>
   </head>
   <body bgcolor="white" text="black">
     <h1>Protocol handler error</h1>
-    <p>If you can see this page, <a href="https://github.com/TurboWarp/desktop/issues" target="_blank" rel="noreferrer">please open a GitHub issue</a> or <a href="mailto:contact@turbowarp.org" target="_blank" rel="noreferrer">email us</a> with all the information below.</p>
+    <p>If you can see this page, <a href="https://github.com/cyso-editor/issues" target="_blank" rel="noreferrer">please open a GitHub issue</a> or <a href="mailto:cy_studio_001@163.com" target="_blank" rel="noreferrer">email us</a> with all the information below.</p>
     <pre>${escapeXML(errorMessage)}</pre>
     <pre>URL: ${escapeXML(request.url)}</pre>
     <pre>Version ${escapeXML(packageJSON.version)}, Electron ${escapeXML(process.versions.electron)}, Platform ${escapeXML(getPlatform())} ${escapeXML(process.arch)}, Distribution ${escapeXML(getDist())}</pre>
@@ -240,18 +248,39 @@ const createModernProtocolHandler = (metadata) => {
       if (metadata.brotli) {
         // Reading it all into memory is not ideal, but we've had so many problems with streaming
         // files from the asar that I can settle with this.
-        const brotliResponse = await net.fetch(nodeURL.pathToFileURL(`${resolved}.br`));
-        const brotliData = await brotliResponse.arrayBuffer();
-        const decompressed = await brotliDecompress(brotliData);
-        return new Response(decompressed, {
-          headers
-        });
+        const fs = require('fs');
+        try {
+          const brotliData = await fs.promises.readFile(`${resolved}.br`);
+          const decompressed = await brotliDecompress(brotliData);
+          return new Response(decompressed, {
+            headers
+          });
+        } catch (brotliError) {
+          // Fallback to uncompressed file if .br file doesn't exist
+          if (fs.existsSync(resolved)) {
+            const fileData = await fs.promises.readFile(resolved);
+            return new Response(fileData, {
+              headers
+            });
+          }
+          // If neither exists, return error
+          return createErrorResponse(brotliError);
+        }
       }
 
-      const response = await net.fetch(nodeURL.pathToFileURL(resolved));
-      return new Response(response.body, {
-        headers
-      });
+      // For non-brotli protocols, use fs to read local files
+      const fs = require('fs');
+      if (!fs.existsSync(resolved)) {
+        return createErrorResponse(new Error(`File not found locally: ${resolved}`));
+      }
+      try {
+        const fileData = await fs.promises.readFile(resolved);
+        return new Response(fileData, {
+          headers
+        });
+      } catch (error) {
+        return createErrorResponse(error);
+      }
     } catch (error) {
       return createErrorResponse(error);
     }
@@ -308,16 +337,32 @@ const createLegacyBrotliProtocolHandler = (metadata) => {
 
       // Reading it all into memory is not ideal, but we've had so many problems with streaming
       // files from the asar that I can settle with this.
-      const brotliData = await fsPromises.readFile(`${resolved}.br`);
-      const decompressed = await brotliDecompress(brotliData);
+      try {
+        const brotliData = await fsPromises.readFile(`${resolved}.br`);
+        const decompressed = await brotliDecompress(brotliData);
 
-      callback({
-        data: decompressed,
-        headers: {
-          ...baseHeaders,
-          'content-type': mimeType
+        callback({
+          data: decompressed,
+          headers: {
+            ...baseHeaders,
+            'content-type': mimeType
+          }
+        });
+      } catch (brotliError) {
+        // Fallback to uncompressed file if .br file doesn't exist
+        try {
+          const fileData = await fsPromises.readFile(resolved);
+          callback({
+            data: fileData,
+            headers: {
+              ...baseHeaders,
+              'content-type': mimeType
+            }
+          });
+        } catch (fallbackError) {
+          returnErrorPage(fallbackError);
         }
-      });
+      }
     } catch (error) {
       returnErrorPage(error);
     }
@@ -392,8 +437,10 @@ app.whenReady().then(() => {
       protocol.handle(scheme, createModernProtocolHandler(metadata));
     } else {
       if (metadata.brotli) {
+        // @ts-ignore
         protocol.registerBufferProtocol(scheme, createLegacyBrotliProtocolHandler(metadata));
       } else {
+        // @ts-ignore
         protocol.registerFileProtocol(scheme, createLegacyFileProtocolHandler(metadata));
       }
     }

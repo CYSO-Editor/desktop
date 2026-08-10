@@ -53,7 +53,11 @@ const startDownloading = async (remainingAssets) => {
     }
 
     console.log(`Fetching ${asset.src}`);
-    const response = await persistentFetch(asset.src);
+    // 使用新的 URL 格式
+    const assetExtension = pathUtil.extname(asset.src);
+    const newUrl = `https://cdn.assets.scratch.mit.edu/internalapi/asset/${asset.md5}${assetExtension}/get/`;
+    console.log(`Using new URL: ${newUrl}`);
+    const response = await persistentFetch(newUrl);
     const data = await response.arrayBuffer();
 
     const actualMD5 = computeMD5(data);
