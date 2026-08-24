@@ -1,23 +1,55 @@
-name: Build (Manual)
+name: Build
+
+# 自动构建：每次 push / PR 到 master 时自动编译打包，产物作为 Actions 工件（不发布 Release，不做签名）。
+# 也可在 Actions 页面手动点 Run workflow 运行。
+#
+# desktop 依赖 5 个本地 ../ 兄弟仓库（scratch-gui / scratch-paint / CYSO-Core / extensions / scratch-vm），
+# CI 上并不存在这些目录，因此这里按固定提交把它们克隆到仓库同级目录（与本地开发布局一致）。
+# 当这些兄弟仓库更新后，请同步更新下面的 *_SHA 环境变量。
 
 on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  SCRATCH_GUI_SHA: d2ac3321c5de54ab178c30a8a9c107b379844ebf
+  SCRATCH_PAINT_SHA: be0e5ecf81f6fa5097c05a530e52407dd2933a51
+  CYSO_CORE_SHA: b5b35b8bc54e166c532f005d541b3bcd48af4618
+  EXTENSIONS_SHA: d9a8d5aba8e3751468bd6869add71cf5c1806ef5
+  SCRATCH_VM_SHA: a85f133f50dba24386e53cde0af56117f2a85db3
 
 jobs:
   build-linux:
     runs-on: ubuntu-latest
     steps:
-    - name: Checkout
+    - name: Checkout desktop
       uses: actions/checkout@v4
-      with:
-        submodules: recursive
-        persist-credentials: false
+    - name: Checkout sibling repositories
+      run: |
+        clone_sibling() {
+          local name=$1 sha=$2
+          echo "Cloning $name @ $sha"
+          git clone --quiet "https://github.com/CYSO-Editor/$name.git" "${{ github.workspace }}/../$name"
+          git -C "${{ github.workspace }}/../$name" checkout --quiet "$sha"
+        }
+        clone_sibling scratch-gui "$SCRATCH_GUI_SHA"
+        clone_sibling scratch-paint "$SCRATCH_PAINT_SHA"
+        clone_sibling CYSO-Core "$CYSO_CORE_SHA"
+        clone_sibling extensions "$EXTENSIONS_SHA"
+        clone_sibling scratch-vm "$SCRATCH_VM_SHA"
     - name: Install strip-nondeterminism
       run: sudo apt-get install strip-nondeterminism
     - name: Install Node.js
       uses: actions/setup-node@v4
       with:
         node-version: 24
+        cache: npm
     - name: Install dependencies
       run: npm ci --loglevel=info
     - name: Fetch
@@ -26,10 +58,10 @@ jobs:
       run: npm run webpack:prod
     - name: Package
       run: |
-        node release-automation/build.mjs --debian --tarball --appimage --x64 --armv7l --arm64
+        node release-automation/build.mjs --debian --tarball --appimage --x64 --arm64
     - name: Print file tree
       run: node scripts/print-file-tree.mjs dist
-    - name: Upload artifacts to GitHub Actions
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: linux
@@ -41,15 +73,26 @@ jobs:
   build-mac:
     runs-on: macos-latest
     steps:
-    - name: Checkout
+    - name: Checkout desktop
       uses: actions/checkout@v4
-      with:
-        submodules: recursive
-        persist-credentials: false
+    - name: Checkout sibling repositories
+      run: |
+        clone_sibling() {
+          local name=$1 sha=$2
+          echo "Cloning $name @ $sha"
+          git clone --quiet "https://github.com/CYSO-Editor/$name.git" "${{ github.workspace }}/../$name"
+          git -C "${{ github.workspace }}/../$name" checkout --quiet "$sha"
+        }
+        clone_sibling scratch-gui "$SCRATCH_GUI_SHA"
+        clone_sibling scratch-paint "$SCRATCH_PAINT_SHA"
+        clone_sibling CYSO-Core "$CYSO_CORE_SHA"
+        clone_sibling extensions "$EXTENSIONS_SHA"
+        clone_sibling scratch-vm "$SCRATCH_VM_SHA"
     - name: Install Node.js
       uses: actions/setup-node@v4
       with:
         node-version: 24
+        cache: npm
     - name: Install dependencies
       run: npm ci --loglevel=info
     - name: Fetch
@@ -58,51 +101,52 @@ jobs:
       run: npm run webpack:prod
     - name: Package
       run: |
-        # Need to run the universal builds as separate commands or it breaks when @electron/universal
-        # diffs the ASARs and finds spurious differences. Not clear why.
-        node release-automation/build.mjs --mac --universal --production
-        node release-automation/build.mjs --mac-legacy-11 --universal --production
-        node release-automation/build.mjs --mac-legacy-10.13-10.14 --mac-legacy-10.15 --x64
+        node release-automation/build.mjs --mac --universal
     - name: Print file tree
       run: node scripts/print-file-tree.mjs dist
-    - name: Upload artifacts to GitHub Actions
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: mac
         path: dist/*.dmg
 
   build-windows:
-    # GitHub's Windows runners have a C: drive and a D: drive.
-    # C: is for the OS and has good read performance but awful write performance.
-    # D: has much better faster write performance (>20x faster than C:)
-    # We want to use the D: drive whenever we can. Trying to do "npm ci" on the C:
-    # drive has been observed to take over an hour!
     runs-on: windows-latest
     steps:
-    # actions/checkout can only clone to paths in $GITHUB_WORKSPACE which is on the C: drive,
-    # so we have to clone to C: then copy to D: after. This repository itself isn't huge so
-    # this is plenty fast.
-    - name: Checkout
+    - name: Checkout desktop
       uses: actions/checkout@v4
       with:
-        submodules: recursive
-        persist-credentials: false
         path: repo
-    - name: "Move repository to D: drive"
+    - name: Move repository to D: drive
       run: |
         Copy-Item -Path repo -Destination D:\repo -Recurse
         Remove-Item -Path repo -Recurse -Force
+    - name: Checkout sibling repositories
+      shell: pwsh
+      run: |
+        $sibs = @{
+          'scratch-gui'   = $env:SCRATCH_GUI_SHA
+          'scratch-paint' = $env:SCRATCH_PAINT_SHA
+          'CYSO-Core'     = $env:CYSO_CORE_SHA
+          'extensions'    = $env:EXTENSIONS_SHA
+          'scratch-vm'    = $env:SCRATCH_VM_SHA
+        }
+        foreach ($name in $sibs.Keys) {
+          $sha = $sibs[$name]
+          $dest = "D:\$name"
+          Write-Host "Cloning $name @ $sha -> $dest"
+          git clone --quiet "https://github.com/CYSO-Editor/$name.git" $dest
+          git -C $dest checkout --quiet $sha
+        }
+    - name: Configure npm to use D: drive
+      run: |
+        npm config set cache D:\npm-cache
+        npm config set prefix D:\npm-prefix
     - name: Install Node.js
       uses: actions/setup-node@v4
       with:
         node-version: 24
-    # The repository being on D: means that node_modules IO will be fast, but npm still downloads
-    # packages to a temporary folder for caching which is on C: by default. We need to make sure
-    # npm uses the D: drive instead otherwise we still get bottlenecked by C:.
-    - name: "Configure npm to use D: drive"
-      run: |
-        npm config set cache D:\npm-cache
-        npm config set prefix D:\npm-prefix
+        cache: npm
     - name: Install dependencies
       working-directory: D:\repo
       run: npm ci --loglevel=info
@@ -115,16 +159,13 @@ jobs:
     - name: Package
       working-directory: D:\repo
       run: |
-        node release-automation/build.mjs --windows --microsoft-store --x64 --ia32 --arm64
-        node release-automation/build.mjs --windows-portable --x64
-        node release-automation/build.mjs --windows-legacy --ia32 --x64
+        node release-automation/build.mjs --windows --x64 --arm64
+        node release-automation/build.mjs --windows-portable --x64 --arm64
     - name: Print file tree
       working-directory: D:\repo
       run: node scripts/print-file-tree.mjs dist
-    - name: Upload artifacts to GitHub Actions
+    - name: Upload artifacts
       uses: actions/upload-artifact@v4
       with:
         name: windows
-        path: |
-          D:\repo\dist\*.exe
-          D:\repo\dist\*.appx
+        path: D:\repo\dist\*.exe
