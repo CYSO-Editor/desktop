@@ -53,7 +53,6 @@ const startDownloading = async (remainingAssets) => {
     }
 
     console.log(`Fetching ${asset.src}`);
-    // 使用新的 URL 格式
     const assetExtension = pathUtil.extname(asset.src);
     const newUrl = `https://cdn.assets.scratch.mit.edu/internalapi/asset/${asset.md5}${assetExtension}/get/`;
     console.log(`Using new URL: ${newUrl}`);

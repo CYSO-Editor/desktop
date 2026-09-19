@@ -177,6 +177,7 @@ class Settings {
   set richPresence (richPresence) {
     this.data.richPresence = richPresence;
   }
+
 }
 
 module.exports = new Settings();

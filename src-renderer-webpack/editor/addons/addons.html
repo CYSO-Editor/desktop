@@ -2,7 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; frame-src 'self' blob: cysoeditor://* tw-extensions://* https: http: data:;">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
       [splash-theme="dark"]:not(.tw-loaded) {
@@ -11,12 +11,32 @@
       [splash-theme="aurora"]:not(.tw-loaded) {
         background-color: #4F8EC2;
       }
+      [splash-theme="misty-sand"]:not(.tw-loaded) {
+        background: linear-gradient(135deg, #e9f1fb 0%, #f7f1e8 48%, #eef5f0 100%);
+      }
+      [splash-theme="misty-sand-dark"]:not(.tw-loaded) {
+        background-color: #1c1d24;
+      }
     </style>
   </head>
   <body>
     <div id="app"></div>
     <script>
       (function () {
+        let urlDark = false;
+        try {
+          urlDark = new URLSearchParams(window.location.search).get('dark') === '1';
+        } catch (e) {  }
+
+        let customTheme = null;
+        let darkMode = false;
+        try {
+          customTheme = JSON.parse(localStorage.getItem('tw:customTheme') || 'null');
+          darkMode = !!(customTheme && customTheme.darkMode);
+        } catch (e) {
+          customTheme = null;
+        }
+
         let theme = localStorage.getItem('tw:theme');
         if (theme === null) {
           theme = 'aurora';
@@ -25,6 +45,8 @@
             const parsed = JSON.parse(theme);
             if (parsed.gui === 'dark' || parsed.gui === 'light' || parsed.gui === 'aurora') {
               theme = parsed.gui;
+            } else if (parsed.gui === 'misty-sand') {
+              theme = (urlDark || darkMode) ? 'misty-sand-dark' : 'misty-sand';
             } else {
               theme = 'aurora';
             }

@@ -394,6 +394,23 @@ class EditorWindow extends ProjectRunningWindow {
       this.window.setRepresentedFilename('');
     });
 
+    this.ipc.handle('open-project', async (event, filePath) => {
+      if (typeof filePath !== 'string' || !filePath.trim()) {
+        throw new Error('Invalid project path');
+      }
+      const resolved = path.resolve(core.expandPath(filePath));
+      const file = new OpenedFile(TYPE_FILE, resolved);
+      const id = generateFileId();
+      this.openedFiles.set(id, file);
+      this.activeFileId = id;
+      this.openedProjectAt = Date.now();
+      this.window.setRepresentedFilename(resolved);
+      return {
+        id,
+        name: path.basename(resolved)
+      };
+    });
+
     this.ipc.handle('show-open-file-picker', async (event, options) => {
       const opts = options || {};
       const filters = opts.filters || [
@@ -759,11 +776,9 @@ class EditorWindow extends ProjectRunningWindow {
         } else if (typeof content === 'number' || typeof content === 'boolean') {
           processedContent = String(content);
         } else if (typeof content !== 'string' && !Buffer.isBuffer(content) && !(content instanceof Uint8Array)) {
-          // ArrayBuffer 或其他类型转换为 Uint8Array
           if (content instanceof ArrayBuffer) {
             processedContent = new Uint8Array(content);
           } else {
-            // 其他情况尝试转为字符串
             processedContent = String(content);
           }
         }
