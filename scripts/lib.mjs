@@ -38,7 +38,6 @@ export const persistentFetch = async (url, opts) => {
     } catch (e) {
       if (i === 0) err = e;
       console.warn(`Attempt to fetch ${url} failed, trying again...`);
-      // 每次重试前等待一段时间
       await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
     }
   }

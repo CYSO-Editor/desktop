@@ -130,6 +130,9 @@ const DesktopHOC = function (WrappedComponent) {
         await this.props.vm.loadProject(data);
         this.props.onLoadingCompleted();
         this.props.onLoadedProject(this.props.loadingState, true);
+        // 确保桌面端启动闪屏（gui.html）收到完成信号而关闭；
+        // 默认工程加载可能早于 LoaderBridge 挂载，导致其监听的 PROJECT_LOADED 错过、cyso:load-done 丢失
+        window.dispatchEvent(new CustomEvent('cyso:load-done'));
 
         const title = getDefaultProjectTitle(name);
         if (title) {
@@ -149,6 +152,7 @@ const DesktopHOC = function (WrappedComponent) {
         this.props.onLoadedProject(this.props.loadingState, false);
         this.props.onHasInitialProject(false, this.props.loadingState);
         this.props.onRequestNewProject();
+        window.dispatchEvent(new CustomEvent('cyso:load-done'));
       });
     }
     componentDidUpdate (prevProps, prevState) {

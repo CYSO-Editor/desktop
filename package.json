@@ -1,7 +1,7 @@
 {
   "name": "cysoeditor-desktop",
   "description": "CYSOEditor - Visual programming editor with Aurora theme, CYSO Core, and high-performance compiler engine.",
-  "version": "1.0.0",
+  "version": "1.0.4",
   "license": "GPL-3.0",
   "author": {
     "email": "cy_studio_001@163.com",

@@ -268,6 +268,26 @@
       .splash-screen[data-theme="misty-sand"] .blob-pink   { background: radial-gradient(circle at 50% 50%, rgba(225, 170, 150, 0.32) 0%, rgba(225, 170, 150, 0) 62%); }
       .splash-screen[data-theme="misty-sand"] .blob-cyan   { background: radial-gradient(circle at 50% 50%, rgba(110, 180, 200, 0.32) 0%, rgba(110, 180, 200, 0) 68%); }
 
+      .splash-screen[data-theme="misty-sand-dark"] {
+        --aurora:
+          radial-gradient(circle at 20% 30%, rgba(90, 180, 140, 0.24) 0%, transparent 40%),
+          radial-gradient(circle at 80% 70%, rgba(150, 120, 210, 0.26) 0%, transparent 44%),
+          radial-gradient(circle at 45% 75%, rgba(225, 170, 150, 0.20) 0%, transparent 34%),
+          radial-gradient(circle at 65% 25%, rgba(110, 180, 200, 0.22) 0%, transparent 48%),
+          linear-gradient(160deg, #1a1c24, #212127 50%, #1c1e24);
+        --text: #e8e9ee;
+        --text-dim: rgba(232, 233, 238, 0.6);
+        --accent: #7db3f5;
+      }
+      .splash-screen[data-theme="misty-sand-dark"] .blob-green  { background: radial-gradient(circle at 50% 50%, rgba(90, 180, 140, 0.45) 0%, rgba(90, 180, 140, 0) 66%); }
+      .splash-screen[data-theme="misty-sand-dark"] .blob-purple { background: radial-gradient(circle at 50% 50%, rgba(150, 120, 210, 0.48) 0%, rgba(150, 120, 210, 0) 66%); }
+      .splash-screen[data-theme="misty-sand-dark"] .blob-pink   { background: radial-gradient(circle at 50% 50%, rgba(225, 170, 150, 0.42) 0%, rgba(225, 170, 150, 0) 62%); }
+      .splash-screen[data-theme="misty-sand-dark"] .blob-cyan   { background: radial-gradient(circle at 50% 50%, rgba(110, 180, 200, 0.44) 0%, rgba(110, 180, 200, 0) 68%); }
+      .splash-screen[data-theme="misty-sand-dark"] .aurora-stream { opacity: 0.85; }
+      .splash-screen[data-theme="misty-sand-dark"] .aurora-vignette {
+        background: radial-gradient(120% 120% at 50% 45%, transparent 60%, rgba(0, 0, 0, 0.45) 100%);
+      }
+
       @media (prefers-reduced-motion: reduce) {
         .splash-screen,
         .aurora-field,
@@ -341,6 +361,15 @@
             } catch (e) { /* ignore malformed value */ }
           }
         } catch (e) { /* localStorage may be unavailable */ }
+        if (theme === 'misty-sand') {
+          try {
+            var customRaw = localStorage.getItem('tw:customTheme');
+            var customParsed = customRaw ? JSON.parse(customRaw) : null;
+            if (customParsed && customParsed.darkMode) {
+              theme = 'misty-sand-dark';
+            }
+          } catch (e) { /* ignore malformed custom theme */ }
+        }
         splash.setAttribute('data-theme', theme);
         splash.style.setProperty('--accent', accent);
         splash.hidden = false;
@@ -501,6 +530,7 @@
 
         // real sub-stage progress forwarded from loader.jsx
         window.addEventListener('cyso:load-progress', function(e) {
+          if (ready) return;
           var d = (e && e.detail) || {};
           if (d.total === 0) {
             goal = Math.max(goal, 88);
