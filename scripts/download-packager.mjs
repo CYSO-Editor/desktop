@@ -32,7 +32,6 @@ const isAlreadyDownloaded = () => {
 };
 
 if (isCustomBuild()) {
-  // 检测到 CYSOEditor 自定义编译版本，跳过下载以避免覆盖
   console.log('CYSOEditor custom packager detected, skipping download.');
 } else if (!isAlreadyDownloaded()) {
   console.log(`Downloading ${packagerInfo.src}`);
