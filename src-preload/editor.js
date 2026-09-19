@@ -10,7 +10,14 @@ const getActiveExtensionId = () => {
   return activeExtensionId;
 };
 
-// 全局快捷键事件转发
+let permissionAdminToken = null;
+let extensionRuntimeToken = null;
+
+const isPermissionAdmin = token => typeof token === 'string' && token.length > 0 && token === permissionAdminToken;
+const isExtensionRuntime = token => typeof token === 'string' && token.length > 0 && token === extensionRuntimeToken;
+const isTrustedCaller = token => isPermissionAdmin(token) || isExtensionRuntime(token);
+const rejected = () => Promise.resolve({success: false, error: 'Permission change rejected: untrusted caller'});
+
 const shortcutTriggeredCallbacks = [];
 ipcRenderer.on('global-shortcut-triggered', (event, data) => {
   for (const cb of shortcutTriggeredCallbacks) {
@@ -49,6 +56,7 @@ contextBridge.exposeInMainWorld('EditorPreload', {
   openAbout: () => ipcRenderer.invoke('open-about'),
   getPreferredMediaDevices: () => ipcRenderer.invoke('get-preferred-media-devices'),
   getAdvancedCustomizations: () => ipcRenderer.invoke('get-advanced-customizations'),
+  openProject: (filePath) => ipcRenderer.invoke('open-project', filePath),
   setExportForPackager: (callback) => {
     exportForPackager = callback;
   },
@@ -64,36 +72,50 @@ contextBridge.exposeInMainWorld('EditorPreload', {
   createFolder: (folderPath) => ipcRenderer.invoke('create-folder', getActiveExtensionId(), folderPath),
   getPath: (name) => ipcRenderer.invoke('get-path', name),
   showNotification: (options) => ipcRenderer.invoke('show-notification', options),
-  // 权限默认值
+  claimPermissionAdmin: () => {
+    if (permissionAdminToken) return null;
+    permissionAdminToken = `cyso-admin-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+    return permissionAdminToken;
+  },
+  claimExtensionRuntime: () => {
+    if (extensionRuntimeToken) return null;
+    extensionRuntimeToken = `cyso-runtime-${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+    return extensionRuntimeToken;
+  },
+
   getDefaults: () => ipcRenderer.invoke('get-defaults'),
-  // 兼容旧接口（只读）
   getPermissions: () => ipcRenderer.invoke('get-permissions'),
   getCYSOCoreEnabled: () => ipcRenderer.invoke('get-cyso-core-enabled'),
-  setCYSOCoreEnabled: (enabled) => ipcRenderer.invoke('set-cyso-core-enabled', enabled),
   checkPermission: (extensionId, permissionType) => ipcRenderer.invoke('check-permission', extensionId, permissionType),
-  // 用户设置的权限写入（默认值 / 指定扩展的某项权限），直接更新运行时强制使用的权限表
-  setDefault: (permissionType, setting) => ipcRenderer.invoke('set-default', permissionType, setting),
-  setExtensionPermission: (extensionId, permissionType, setting) =>
-    ipcRenderer.invoke('set-extension-permission', extensionId, permissionType, setting),
+  setCYSOCoreEnabled: (token, enabled) => (isPermissionAdmin(token) ?
+    ipcRenderer.invoke('set-cyso-core-enabled', enabled) : rejected()),
+  setDefault: (token, permissionType, setting) => (isPermissionAdmin(token) ?
+    ipcRenderer.invoke('set-default', permissionType, setting) : rejected()),
+  setExtensionPermission: (token, extensionId, permissionType, setting) => (isPermissionAdmin(token) ?
+    ipcRenderer.invoke('set-extension-permission', extensionId, permissionType, setting) : rejected()),
 
-  // 扩展标识上下文
-  setActiveExtensionId: (id) => { activeExtensionId = id || null; },
-  pushActiveExtensionId: (id) => {
+  setActiveExtensionId: (token, id) => {
+    if (!isExtensionRuntime(token)) return;
+    activeExtensionId = id || null;
+  },
+  pushActiveExtensionId: (token, id) => {
+    if (!isExtensionRuntime(token)) return;
     activeExtensionStack.push(id);
     activeExtensionId = id;
   },
-  popActiveExtensionId: () => {
+  popActiveExtensionId: (token) => {
+    if (!isExtensionRuntime(token)) return;
     activeExtensionStack.pop();
     activeExtensionId = activeExtensionStack.length ? activeExtensionStack[activeExtensionStack.length - 1] : null;
   },
+  getActiveExtensionId: () => getActiveExtensionId(),
 
-  // 扩展权限自动注册
-  registerExtensionPermissions: (extensionId, permissions, extensionName) => ipcRenderer.invoke('register-extension-permissions', extensionId, permissions, extensionName),
+  registerExtensionPermissions: (token, extensionId, permissions, extensionName) => (isTrustedCaller(token) ?
+    ipcRenderer.invoke('register-extension-permissions', extensionId, permissions, extensionName) : rejected()),
   getExtensionPermissions: (extensionId) => ipcRenderer.invoke('get-extension-permissions', extensionId),
   getExtensionPermissionStatus: (extensionId, permissionType) => ipcRenderer.invoke('get-extension-permission-status', extensionId, permissionType),
   getAllPermissionsStatus: () => ipcRenderer.invoke('get-all-permissions-status'),
   
-  // 全局快捷键
   registerGlobalShortcut: (key, eventName) => ipcRenderer.invoke('register-global-shortcut', getActiveExtensionId(), key, eventName),
   unregisterGlobalShortcut: (key) => ipcRenderer.invoke('unregister-global-shortcut', key),
   onShortcutTriggered: (callback) => {
@@ -102,21 +124,17 @@ contextBridge.exposeInMainWorld('EditorPreload', {
     }
   },
   
-  // 屏幕绘制窗口
   createOverlayWindow: (id, x, y, w, h) => ipcRenderer.invoke('create-overlay-window', getActiveExtensionId(), id, x, y, w, h),
   setOverlayContent: (id, content) => ipcRenderer.invoke('set-overlay-content', getActiveExtensionId(), id, content),
   closeOverlayWindow: (id) => ipcRenderer.invoke('close-overlay-window', id),
   
-  // 屏幕捕获
   captureScreen: (target) => ipcRenderer.invoke('capture-screen', getActiveExtensionId(), target),
   captureRegion: (x, y, w, h) => ipcRenderer.invoke('capture-region', getActiveExtensionId(), x, y, w, h),
   
-  // 高级窗口
   createAdvancedWindow: (id, options) => ipcRenderer.invoke('create-advanced-window', getActiveExtensionId(), id, options),
   setWindowProperty: (id, prop, value) => ipcRenderer.invoke('set-window-property', getActiveExtensionId(), id, prop, value),
   closeAdvancedWindow: (id) => ipcRenderer.invoke('close-advanced-window', id),
   
-  // 硬件
   getHardwareStatus: (device) => ipcRenderer.invoke('get-hardware-status', getActiveExtensionId(), device),
 
   setNativeTheme: (isDark) => {

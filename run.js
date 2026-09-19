@@ -1,6 +1,4 @@
 #!/usr/bin/env node
-// 自动编译渲染端并启动 CYSOEditor
-// 用法：在 desktop 目录下执行 `node run.js`
 const { spawnSync } = require('child_process');
 
 function run(script) {
