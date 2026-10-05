@@ -10,28 +10,37 @@ import {
   requestProjectUpload,
   setProjectId,
   defaultProjectId,
+  getIsShowingProject,
+  getIsError,
   onFetchedProjectData,
   onLoadedProject,
-  requestNewProject
+  requestNewProject,
+  LoadingState
 } from 'scratch-gui/src/reducers/project-state';
 import {
   setFileHandle,
   setUsername,
-  setProjectError
+  setProjectError,
+  setUpdateAvailableVersion
 } from 'scratch-gui/src/reducers/tw';
 import {WrappedFileHandle} from './filesystem-api.js';
 import {setStrings} from '../prompt/prompt.js';
 
-let mountedOnce = false;
+let initialLoadStarted = false;
+const LOAD_TIMEOUT_MS = 60000;
 
 /**
  * @param {string} filename
  * @returns {string}
  */
 const getDefaultProjectTitle = (filename) => {
-  const match = filename.match(/([^/\\]+)\.sb[2|3]?$/);
+  const match = filename.match(/([^/\\]+)\.sb[23]?$/i);
   if (!match) return filename;
   return match[1];
+};
+
+const dispatchLoadPhase = phase => {
+  window.dispatchEvent(new CustomEvent('cyso:load-phase', {detail: phase}));
 };
 
 const handleClickAddonSettings = (search) => {
@@ -62,19 +71,47 @@ const handleClickSourceCode = () => {
   window.open('https://github.com/cyso-editor');
 };
 
-const securityManager = {
-  // Everything not specified here falls back to the scratch-gui security manager
+const handleClickUpdateNotice = () => {
+  EditorPreload.openUpdateWindow().catch(error => {
+    console.error('Failed to open update window:', error);
+  });
+};
 
-  // Managed by Electron main process:
+const securityManager = {
   canReadClipboard: () => true,
   canNotify: () => true,
-
-  // Does not work in Electron:
   canGeolocate: () => false
 };
 
 const USERNAME_KEY = 'tw:username';
 const DEFAULT_USERNAME = 'player';
+
+const localeCache = new Map();
+const FALLBACK_MESSAGES = {
+  'prompt.ok': 'OK',
+  'prompt.cancel': 'Cancel',
+  'in-app-about.desktop-settings': 'Desktop settings',
+  'in-app-about.privacy': 'Privacy policy',
+  'in-app-about.about': 'About',
+  'in-app-about.source-code': 'Source code',
+  'update.menu-bar-available': 'New version ({version})'
+};
+const requestLocaleState = locale => {
+  if (!localeCache.has(locale)) {
+    localeCache.set(locale, EditorPreload.setLocale(locale)
+      .then(state => {
+        localeCache.set(locale, Promise.resolve(state));
+        return state;
+      })
+      .catch(error => {
+        console.error('Failed to load locale strings:', error);
+        const fallback = {strings: FALLBACK_MESSAGES};
+        localeCache.set(locale, Promise.resolve(fallback));
+        return fallback;
+      }));
+  }
+  return Promise.resolve(localeCache.get(locale));
+};
 
 const DesktopHOC = function (WrappedComponent) {
   class DesktopComponent extends React.Component {
@@ -85,12 +122,14 @@ const DesktopHOC = function (WrappedComponent) {
       };
       this.handleUpdateProjectTitle = this.handleUpdateProjectTitle.bind(this);
 
-      // Changing locale always re-mounts this component
-      const stateFromMain = EditorPreload.setLocale(this.props.locale);
-      this.messages = stateFromMain.strings;
-      setStrings({
-        ok: this.messages['prompt.ok'],
-        cancel: this.messages['prompt.cancel']
+      this.messages = FALLBACK_MESSAGES;
+      requestLocaleState(this.props.locale).then(state => {
+        this.messages = state.strings;
+        setStrings({
+          ok: this.messages['prompt.ok'],
+          cancel: this.messages['prompt.cancel']
+        });
+        this.forceUpdate();
       });
 
       const storedUsername = localStorage.getItem(USERNAME_KEY);
@@ -101,63 +140,120 @@ const DesktopHOC = function (WrappedComponent) {
       }
     }
     componentDidMount () {
+      // 菜单栏的更新提示：主进程检查到新版本时会推过来，组件里显示
+      // 「新的版本（vx.x.x）」。首屏渲染可能晚于检查完成，所以还要
+      // 主动拉一次当前状态。
+      this.unsubscribeUpdateNotice = EditorPreload.onUpdateAvailableChanged(version => {
+        this.props.onSetUpdateAvailableVersion(version);
+      });
+      EditorPreload.getUpdateAvailableVersion()
+        .then(version => {
+          this.props.onSetUpdateAvailableVersion(typeof version === 'string' ? version : '');
+        })
+        .catch(error => {
+          console.error('Failed to read update-available version:', error);
+        });
+
       EditorPreload.setExportForPackager(() => this.props.vm.saveProjectSb3('arraybuffer')
         .then((buffer) => ({
           name: this.state.title,
           data: buffer
         })));
 
-      // This component is re-mounted when the locale changes, but we only want to load
-      // the initial project once.
-      if (mountedOnce) {
+      // set-locale re-mounts this component, but the project must only be loaded once.
+      if (initialLoadStarted) {
         return;
       }
-      mountedOnce = true;
+      initialLoadStarted = true;
 
-      this.props.onLoadingStarted();
-      (async () => {
-        // Note that 0 is a valid ID and does mean there is a file open
+      this.loadInitialProject();
+    }
+
+    /**
+     * Runs the one-time startup load. Errors are reported through the invalid-project modal rather
+     * than thrown, and every exit path ends by signalling completion so the splash never hangs.
+     *
+     * The default-project path leaves both onLoadedProject and the completion signal to
+     * ProjectFetcherHOC and VMManagerHOC: a second dispatch would pass a loadingState the reducer
+     * rejects, and signalling early would let the splash leave before the project finished loading.
+     * @returns {Promise<void>}
+     */
+    async loadInitialProject () {
+      const {vm, onLoadingStarted, onLoadingCompleted, onLoadedProject} = this.props;
+
+      this.loadFinished = false;
+      this.loadSignaled = false;
+      this.loadWatchdog = 0;
+      onLoadingStarted();
+
+      this.loadWatchdog = setTimeout(() => {
+        this.completeLoading();
+        this.signalLoaded();
+      }, LOAD_TIMEOUT_MS);
+
+      try {
+        dispatchLoadPhase('parse');
+
+        // 0 is a valid id, so only null/undefined mean "no file was opened".
         const id = await EditorPreload.getInitialFile();
-        if (id === null) {
-          this.props.onHasInitialProject(false, this.props.loadingState);
-          this.props.onLoadingCompleted();
+        if (id === null || id === undefined) {
+          // No file: hand off to ProjectFetcherHOC, which resolves the built-in default project.
+          dispatchLoadPhase('default');
+          this.props.onHasInitialProject(false);
+          this.completeLoading();
           return;
         }
 
-        this.props.onHasInitialProject(true, this.props.loadingState);
+        // START_LOADING_VM_FILE_UPLOAD must precede the VM touching the data: that action
+        // is what puts the state machine into a LOADING_VM_* state.
+        dispatchLoadPhase('project');
+        this.props.onHasInitialProject(true);
         const {name, type, data} = await EditorPreload.getFile(id);
 
-        await this.props.vm.loadProject(data);
-        this.props.onLoadingCompleted();
-        this.props.onLoadedProject(this.props.loadingState, true);
-        // 确保桌面端启动闪屏（gui.html）收到完成信号而关闭；
-        // 默认工程加载可能早于 LoaderBridge 挂载，导致其监听的 PROJECT_LOADED 错过、cyso:load-done 丢失
-        window.dispatchEvent(new CustomEvent('cyso:load-done'));
+        await vm.loadProject(data);
+        this.completeLoading();
+        this.signalLoaded();
+        onLoadedProject(LoadingState.LOADING_VM_FILE_UPLOAD, true);
 
         const title = getDefaultProjectTitle(name);
         if (title) {
-          this.setState({
-            title
-          });
+          this.setState({title});
         }
-
-        if (type === 'file' && name.endsWith('.sb3')) {
+        if (type === 'file' && name.toLowerCase().endsWith('.sb3')) {
           this.props.onSetFileHandle(new WrappedFileHandle(id, name));
         }
-      })().catch(error => {
-        console.error(error);
-
+      } catch (error) {
+        console.error('Failed to load initial project:', error);
+        this.completeLoading();
+        this.signalLoaded();
         this.props.onShowErrorModal(error);
-        this.props.onLoadingCompleted();
-        this.props.onLoadedProject(this.props.loadingState, false);
-        this.props.onHasInitialProject(false, this.props.loadingState);
         this.props.onRequestNewProject();
-        window.dispatchEvent(new CustomEvent('cyso:load-done'));
-      });
+      }
     }
+
+    completeLoading () {
+      if (this.loadFinished) return;
+      this.loadFinished = true;
+      if (this.loadWatchdog) {
+        clearTimeout(this.loadWatchdog);
+        this.loadWatchdog = 0;
+      }
+      this.props.onLoadingCompleted();
+    }
+
+    signalLoaded () {
+      if (this.loadSignaled) return;
+      this.loadSignaled = true;
+      window.dispatchEvent(new CustomEvent('cyso:load-done'));
+    }
+
     componentDidUpdate (prevProps, prevState) {
       if (this.props.projectChanged !== prevProps.projectChanged) {
         EditorPreload.setChanged(this.props.projectChanged);
+      }
+
+      if (this.props.isLoadSettled && !prevProps.isLoadSettled) {
+        this.signalLoaded();
       }
 
       if (this.state.title !== prevState.title) {
@@ -180,6 +276,12 @@ const DesktopHOC = function (WrappedComponent) {
         EditorPreload.setIsFullScreen(this.props.isFullScreen);
       }
     }
+    componentWillUnmount () {
+      if (this.unsubscribeUpdateNotice) {
+        this.unsubscribeUpdateNotice();
+        this.unsubscribeUpdateNotice = null;
+      }
+    }
     handleUpdateProjectTitle (newTitle) {
       this.setState({
         title: newTitle
@@ -187,11 +289,13 @@ const DesktopHOC = function (WrappedComponent) {
     }
     render() {
       const {
+        isLoadSettled,
         locale,
         loadingState,
         projectChanged,
         fileHandle,
         reduxUsername,
+        updateAvailableVersion,
         onFetchedInitialProjectData,
         onHasInitialProject,
         onLoadedProject,
@@ -230,6 +334,10 @@ const DesktopHOC = function (WrappedComponent) {
             },
           ]}
           onClickDesktopSettings={handleClickDesktopSettings}
+          onClickUpdateNotice={handleClickUpdateNotice}
+          updateAvailableMessage={updateAvailableVersion ?
+            this.messages['update.menu-bar-available']
+              .replace('{version}', updateAvailableVersion) : ''}
           securityManager={securityManager}
           {...props}
         />
@@ -239,6 +347,7 @@ const DesktopHOC = function (WrappedComponent) {
 
   DesktopComponent.propTypes = {
     locale: PropTypes.string.isRequired,
+    isLoadSettled: PropTypes.bool,
     loadingState: PropTypes.string.isRequired,
     projectChanged: PropTypes.bool.isRequired,
     fileHandle: PropTypes.shape({
@@ -254,6 +363,7 @@ const DesktopHOC = function (WrappedComponent) {
     onRequestNewProject: PropTypes.func.isRequired,
     onSetFileHandle: PropTypes.func.isRequired,
     onSetReduxUsername: PropTypes.func.isRequired,
+    onSetUpdateAvailableVersion: PropTypes.func.isRequired,
     onShowErrorModal: PropTypes.func.isRequired,
     vm: PropTypes.shape({
       loadProject: PropTypes.func.isRequired
@@ -262,20 +372,25 @@ const DesktopHOC = function (WrappedComponent) {
 
   const mapStateToProps = state => ({
     locale: state.locales.locale,
+    isLoadSettled: getIsShowingProject(state.scratchGui.projectState.loadingState) ||
+      getIsError(state.scratchGui.projectState.loadingState),
     loadingState: state.scratchGui.projectState.loadingState,
     isFullScreen: state.scratchGui.mode.isFullScreen,
     projectChanged: state.scratchGui.projectChanged,
     fileHandle: state.scratchGui.tw.fileHandle,
     reduxUsername: state.scratchGui.tw.username,
+    updateAvailableVersion: state.scratchGui.tw.updateAvailableVersion,
     vm: state.scratchGui.vm
   });
 
   const mapDispatchToProps = dispatch => ({
     onLoadingStarted: () => dispatch(openLoadingProject()),
     onLoadingCompleted: () => dispatch(closeLoadingProject()),
-    onHasInitialProject: (hasInitialProject, loadingState) => {
+    onHasInitialProject: hasInitialProject => {
       if (hasInitialProject) {
-        return dispatch(requestProjectUpload(loadingState));
+        // requestProjectUpload only accepts NOT_LOADED / SHOWING_WITH_ID / SHOWING_WITHOUT_ID,
+        // and the machine is always at NOT_LOADED during startup.
+        return dispatch(requestProjectUpload(LoadingState.NOT_LOADED));
       }
       return dispatch(setProjectId(defaultProjectId));
     },
@@ -286,6 +401,7 @@ const DesktopHOC = function (WrappedComponent) {
     onRequestNewProject: () => dispatch(requestNewProject(false)),
     onSetFileHandle: fileHandle => dispatch(setFileHandle(fileHandle)),
     onSetReduxUsername: username => dispatch(setUsername(username)),
+    onSetUpdateAvailableVersion: version => dispatch(setUpdateAvailableVersion(version)),
     onShowErrorModal: error => {
       dispatch(setProjectError(error));
       dispatch(openInvalidProjectModal());

@@ -1,49 +1,43 @@
-// Can't use fetch() because we still need to support Electron 22
+// Can't use the global fetch() because we still need to support Electron 22
 
+const {net} = require('electron');
 const {name, version} = require('../package.json');
 
 /**
+ * 读取一个远程 URL 的完整内容。
+ *
+ * 这里刻意使用 Electron 的 net（Chromium 网络栈）而不是 Node 的 https：
+ * Chromium 用操作系统的证书存储来校验 TLS，所以装有企业/自签根证书的用户
+ * （校园网、SSL 过滤代理、抓包工具等）不会遇到
+ * “unable to verify the first certificate”，而 Node 的默认 CA 列表会直接失败。
+ *
  * @param {string} url
+ * @param {Record<string, string>} [extraHeaders] Merged on top of the default headers.
  * @returns {Promise<Buffer>}
  */
-const privilegedFetch = (url) => new Promise((resolve, reject) => {
-  const parsedURL = new URL(url);
-  // Import http and https lazily as they take about 17ms to import the first time
-  const mod = parsedURL.protocol === 'http:' ? require('http') : require('https');
-  const request = mod.get(url, {
-    headers: {
+const privilegedFetch = async (url, extraHeaders) => {
+  const response = await net.fetch(url, {
+    // GitHub API 会把 browser_download_url 之类的地址 302 到别处，需要跟随。
+    redirect: 'follow',
+    headers: Object.assign({
       'user-agent': `${name}/${version}`
-    }
+    }, extraHeaders)
   });
 
-  request.on('response', (response) => {
-    const statusCode = response.statusCode;
-    if (statusCode !== 200) {
-      reject(new Error(`HTTP error ${statusCode} while fetching ${url}`))
-      return;
-    }
-  
-    let chunks = [];
-    response.on('data', (chunk) => {
-      chunks.push(chunk);
-    });
-  
-    response.on('end', () => {
-      resolve(Buffer.concat(chunks));
-    });
-  });
+  if (!response.ok) {
+    throw new Error(`HTTP error ${response.status} while fetching ${url}`);
+  }
 
-  request.on('error', (e) => {
-    reject(e);
-  });
-});
+  return Buffer.from(await response.arrayBuffer());
+};
 
 /**
  * @param {string} url
+ * @param {Record<string, string>} [extraHeaders]
  * @returns {unknown} parsed JSON object
  */
-privilegedFetch.json = async (url) => {
-  const buffer = await privilegedFetch(url);
+privilegedFetch.json = async (url, extraHeaders) => {
+  const buffer = await privilegedFetch(url, extraHeaders);
   return JSON.parse(buffer.toString('utf-8'));
 };
 

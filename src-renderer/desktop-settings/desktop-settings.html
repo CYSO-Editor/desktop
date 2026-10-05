@@ -47,6 +47,30 @@
         border-radius: 0.25rem;
         padding: 0.5rem;
       }
+      .update-check-result {
+        margin: 0.5rem 0;
+        padding: 0.5rem;
+        border: 1px solid #4F8EC2;
+        border-radius: 0.25rem;
+        background-color: #f0f6fb;
+      }
+      .update-check-result.error {
+        border-color: black;
+        background-color: #ffe0e0;
+      }
+      .update-check-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+      }
+      .update-check-actions button {
+        flex-grow: 1;
+        margin: 0;
+      }
+      button:disabled {
+        cursor: default;
+        opacity: 0.6;
+      }
 
       [hidden] {
         display: none !important;
@@ -63,44 +87,115 @@
       <h1 class="title"></h1>
       <script>document.querySelector('.title').textContent = strings['desktop-settings.title'];</script>
 
-      <p class="update-checker-disabled"></p>
       <label class="update-checker-outer">
         <div class="label update-checker-label"></div>
         <select class="update-checker-select" autocomplete="off">
-          <option value="unstable"></option>
           <option value="stable"></option>
-          <option value="security"></option>
           <option value="never"></option>
         </select>
       </label>
       <div class="warning update-checker-warning"></div>
       <script>
-        const updateCheckerDisabledMessage = document.querySelector('.update-checker-disabled');
         const updateCheckerOuter = document.querySelector('.update-checker-outer');
         const updateCheckerWarning = document.querySelector('.update-checker-warning');
+        const updateCheckerSelect = document.querySelector('.update-checker-select');
 
-        updateCheckerDisabledMessage.hidden = settings.updateCheckerAllowed;
-        updateCheckerOuter.hidden = !settings.updateCheckerAllowed;
-        updateCheckerWarning.hidden = !settings.updateCheckerAllowed;
-
-        if (settings.updateCheckerAllowed) {
-          const updateCheckerSelect = document.querySelector('.update-checker-select');
-          updateCheckerSelect.onchange = () => {
-            DesktopSettingsPreload.setUpdateChecker(updateCheckerSelect.value);
-            updateCheckerWarning.hidden = updateCheckerSelect.value !== 'never';
-          };
-          updateCheckerSelect.value = settings.updateChecker;
+        updateCheckerSelect.onchange = () => {
+          DesktopSettingsPreload.setUpdateChecker(updateCheckerSelect.value);
           updateCheckerWarning.hidden = updateCheckerSelect.value !== 'never';
-  
-          document.querySelector('.update-checker-label').textContent = strings['desktop-settings.update-checker'];
-          updateCheckerSelect.querySelector('[value=unstable]').textContent = strings['desktop-settings.notify-unstable'];
-          updateCheckerSelect.querySelector('[value=stable]').textContent = strings['desktop-settings.notify-stable'];
-          updateCheckerSelect.querySelector('[value=security]').textContent = strings['desktop-settings.notify-security'];
-          updateCheckerSelect.querySelector('[value=never]').textContent = strings['desktop-settings.notify-never'];
-          updateCheckerWarning.textContent = strings['desktop-settings.disabled-updates'];
-        } else {
-          updateCheckerDisabledMessage.textContent = strings['desktop-settings.update-checker-not-allowed'];
-        }
+        };
+        updateCheckerSelect.value = settings.updateChecker;
+        updateCheckerWarning.hidden = updateCheckerSelect.value !== 'never';
+
+        document.querySelector('.update-checker-label').textContent = strings['desktop-settings.update-checker'];
+        updateCheckerSelect.querySelector('[value=stable]').textContent = strings['desktop-settings.notify-stable'];
+        updateCheckerSelect.querySelector('[value=never]').textContent = strings['desktop-settings.notify-never'];
+        updateCheckerWarning.textContent = strings['desktop-settings.disabled-updates'];
+      </script>
+
+      <button class="check-updates-button" type="button"></button>
+      <p class="update-check-result" hidden></p>
+      <div class="update-check-actions" hidden>
+        <button class="open-update-window-button" type="button"></button>
+        <button class="releases-page-button" type="button"></button>
+      </div>
+      <script>
+        const checkUpdatesButton = document.querySelector('.check-updates-button');
+        const updateCheckResult = document.querySelector('.update-check-result');
+        const updateCheckActions = document.querySelector('.update-check-actions');
+        const openUpdateWindowButton = document.querySelector('.open-update-window-button');
+        const releasesPageButton = document.querySelector('.releases-page-button');
+
+        checkUpdatesButton.textContent = strings['desktop-settings.check-updates'];
+        openUpdateWindowButton.textContent = strings['desktop-settings.update-available-download'];
+        releasesPageButton.textContent = strings['desktop-settings.releases-page'];
+
+        /**
+         * @param {string} message
+         * @param {boolean} [isError]
+         */
+        const showUpdateCheckResult = (message, isError) => {
+          updateCheckResult.textContent = message;
+          updateCheckResult.classList.toggle('error', Boolean(isError));
+          updateCheckResult.hidden = false;
+        };
+
+        checkUpdatesButton.addEventListener('click', async () => {
+          checkUpdatesButton.disabled = true;
+          showUpdateCheckResult(strings['desktop-settings.checking-updates'], false);
+          updateCheckActions.hidden = true;
+
+          try {
+            const result = await DesktopSettingsPreload.checkForUpdates();
+            if (!result || result.success !== true) {
+              showUpdateCheckResult(
+                strings['desktop-settings.update-check-error'].replace('{error}', (result && result.error) || 'unknown'),
+                true
+              );
+              return;
+            }
+
+            if (result.updateAvailable) {
+              showUpdateCheckResult(
+                strings['desktop-settings.update-check-available']
+                  .replace('{version}', result.latestVersion)
+                  .replace('{currentVersion}', result.currentVersion),
+                false
+              );
+              updateCheckActions.hidden = false;
+            } else {
+              showUpdateCheckResult(
+                strings['desktop-settings.update-check-no-update'].replace('{version}', result.currentVersion),
+                false
+              );
+            }
+          } catch (error) {
+            showUpdateCheckResult(
+              strings['desktop-settings.update-check-error'].replace('{error}', `${error}`),
+              true
+            );
+          } finally {
+            checkUpdatesButton.disabled = false;
+          }
+        });
+
+        openUpdateWindowButton.addEventListener('click', async () => {
+          openUpdateWindowButton.disabled = true;
+          try {
+            await DesktopSettingsPreload.openUpdateWindow();
+          } catch (error) {
+            showUpdateCheckResult(
+              strings['desktop-settings.update-check-error'].replace('{error}', `${error}`),
+              true
+            );
+          } finally {
+            openUpdateWindowButton.disabled = false;
+          }
+        });
+
+        releasesPageButton.addEventListener('click', () => {
+          DesktopSettingsPreload.openReleasesPage();
+        });
       </script>
 
       <label>
@@ -324,6 +419,48 @@
         }
         richPresenceMoreInformation.textContent = strings['desktop-settings.more-information'];
       </script>
+
+      <label>
+        <div class="label render-gpu-mode-label"></div>
+        <select class="render-gpu-mode-select" autocomplete="off">
+          <option value="automatic"></option>
+          <option value="force-gpu"></option>
+          <option value="force-cpu"></option>
+        </select>
+        <script>
+          const renderGpuModeSelect = document.querySelector('.render-gpu-mode-select');
+          renderGpuModeSelect.onchange = () => {
+            DesktopSettingsPreload.setRenderGpuMode(renderGpuModeSelect.value);
+          };
+          renderGpuModeSelect.value = settings.renderGpuMode;
+          document.querySelector('.render-gpu-mode-label').textContent = strings['desktop-settings.render-gpu-mode'];
+          renderGpuModeSelect.querySelector('[value=automatic]').textContent = strings['desktop-settings.render-gpu-mode-automatic'];
+          renderGpuModeSelect.querySelector('[value=force-gpu]').textContent = strings['desktop-settings.render-gpu-mode-force-gpu'];
+          renderGpuModeSelect.querySelector('[value=force-cpu]').textContent = strings['desktop-settings.render-gpu-mode-force-cpu'];
+        </script>
+      </label>
+
+      <label>
+        <div class="label render-resolution-cap-label"></div>
+        <select class="render-resolution-cap-select" autocomplete="off">
+          <option value="0"></option>
+          <option value="1"></option>
+          <option value="1.5"></option>
+          <option value="2"></option>
+        </select>
+        <script>
+          const renderResolutionCapSelect = document.querySelector('.render-resolution-cap-select');
+          renderResolutionCapSelect.onchange = () => {
+            DesktopSettingsPreload.setRenderResolutionCap(+renderResolutionCapSelect.value);
+          };
+          renderResolutionCapSelect.value = String(settings.renderResolutionCap);
+          document.querySelector('.render-resolution-cap-label').textContent = strings['desktop-settings.render-resolution-cap'];
+          renderResolutionCapSelect.querySelector('[value="0"]').textContent = strings['desktop-settings.render-resolution-cap-off'];
+          renderResolutionCapSelect.querySelector('[value="1"]').textContent = '1x';
+          renderResolutionCapSelect.querySelector('[value="1.5"]').textContent = '1.5x';
+          renderResolutionCapSelect.querySelector('[value="2"]').textContent = '2x';
+        </script>
+      </label>
 
       <button class="open-user-data"></button>
       <script>
