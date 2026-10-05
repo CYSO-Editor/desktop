@@ -19,7 +19,6 @@ try {
 const path = require('path');
 const AbstractWindow = require('./windows/abstract');
 const EditorWindow = require('./windows/editor');
-const {checkForUpdates} = require('./update-checker');
 const {translateOrNull} = require('./l10n');
 const migrate = require('./migrate');
 const settings = require('./settings');
@@ -244,7 +243,7 @@ let migratePromise = null;
 // Only reset settings if they don't exist yet
 if (Object.keys(settings.data).length === 0) {
   // Set default settings
-  settings.updateChecker = 'never'; // Disable update checker by default
+  settings.updateChecker = 'stable'; // Notify about stable releases by default
   settings.save().catch(err => {
     console.log('Failed to save default settings:', err);
   });
@@ -270,6 +269,8 @@ app.whenReady().then(() => {
 
     isMigrating = false;
 
+    require('./updates').cleanupPartialDownloads();
+
     const commandLineOptions = parseCommandLine(process.argv);
 
     EditorWindow.openFiles([
@@ -281,13 +282,6 @@ app.whenReady().then(() => {
       // No windows were successfully opened. Let's just quit.
       app.quit();
     }
-
-    checkForUpdates()
-      .catch((error) => {
-        // We don't want to show a full error message when updates couldn't be fetched.
-        // The website might be down, the internet might be broken, might be a school
-        // network that blocks turbowarp.org, etc.
-        console.error('Error checking for updates:', error);
-      });
+    // 更新检查不在这里做：改为每次进入编辑器时触发，见 EditorWindow 构造函数。
   });
 });

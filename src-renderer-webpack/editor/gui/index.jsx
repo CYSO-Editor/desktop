@@ -36,7 +36,8 @@ const mimeFromName = (name) => {
   return MIME_BY_EXTENSION[ext] || '';
 };
 
-// 让渲染进程内 <input type="file">.click() 透明改用原生文件对话框（Electron 不会弹 web 文件框）
+// Electron never shows the web file chooser for a programmatic click on <input type="file">.
+// Redirect those clicks to the native dialog and feed the chosen files back into the input.
 (function patchFileInputClick() {
   const EP = window.EditorPreload;
   if (!window.HTMLInputElement || !EP ||
@@ -88,24 +89,71 @@ const mimeFromName = (name) => {
   };
 })();
 
+if (window.EditorPreload && typeof window.EditorPreload.getExtensionCache === 'function') {
+  window.__cysoExtensionCache = {
+    get: url => window.EditorPreload.getExtensionCache(url)
+  };
+}
+
+window.__CYsoRenderConfig = {
+  gpuMode: 'automatic',
+  resolutionCap: 0
+};
+const applyRenderSettings = renderSettings => {
+  if (!renderSettings || typeof renderSettings !== 'object') return;
+  if (['automatic', 'force-gpu', 'force-cpu'].includes(renderSettings.gpuMode)) {
+    window.__CYsoRenderConfig.gpuMode = renderSettings.gpuMode;
+  }
+  if (typeof renderSettings.resolutionCap === 'number' && renderSettings.resolutionCap >= 0) {
+    window.__CYsoRenderConfig.resolutionCap = renderSettings.resolutionCap;
+  }
+  window.dispatchEvent(new CustomEvent('cyso:render-settings', {
+    detail: window.__CYsoRenderConfig
+  }));
+};
+if (window.EditorPreload && typeof window.EditorPreload.getRenderSettings === 'function') {
+  window.EditorPreload.getRenderSettings().then(applyRenderSettings).catch(() => {});
+  window.EditorPreload.onRenderSettingsChanged(applyRenderSettings);
+}
+
 const appTarget = document.getElementById('app');
 document.body.classList.add('tw-loaded');
 GUI.setAppElement(appTarget);
 
 ReactDOM.render(<GUI />, appTarget);
 
-require('./addons');
-
-EditorPreload.getAdvancedCustomizations().then(({userscript, userstyle}) => {
-  if (userstyle) {
-    const style = document.createElement('style');
-    style.textContent = userstyle;
-    document.body.appendChild(style);
+const startAddons = () => {
+  try {
+    require('./addons');
+  } catch (error) {
+    console.error('Failed to load addons:', error);
   }
+};
+if (typeof window.requestIdleCallback === 'function') {
+  window.requestIdleCallback(startAddons, {timeout: 2000});
+} else {
+  setTimeout(startAddons, 200);
+}
 
-  if (userscript) {
-    const script = document.createElement('script');
-    script.textContent = userscript;
-    document.body.appendChild(script);
-  }
-});
+// Custom CSS is cheap and must land before the first paint of the editor chrome. The userscript is
+// arbitrary code, so it is deferred until after cyso:load-done to keep it off the loading path.
+const applyUserstyle = userstyle => {
+  if (!userstyle) return;
+  const style = document.createElement('style');
+  style.textContent = userstyle;
+  document.body.appendChild(style);
+};
+
+EditorPreload.getAdvancedCustomizations()
+  .then(({userscript, userstyle}) => {
+    applyUserstyle(userstyle);
+    if (!userscript) return;
+    return new Promise(resolve => {
+      window.addEventListener('cyso:load-done', resolve, {once: true});
+      window.setTimeout(resolve, 4000);
+    }).then(() => {
+      const script = document.createElement('script');
+      script.textContent = userscript;
+      document.body.appendChild(script);
+    });
+  });

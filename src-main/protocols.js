@@ -26,6 +26,7 @@ const FILE_SCHEMES = {
     supportFetch: true,
     secure: true,
     embeddable: true, // migration helper
+    brotli: true,
   },
   'tw-desktop-settings': {
     root: path.resolve(__dirname, '../src-renderer/desktop-settings'),
@@ -133,6 +134,108 @@ const brotliDecompress = (input) => new Promise((resolve, reject) => {
   });
 });
 
+const RESPONSE_CACHE_MAX_ENTRIES = 512;
+const RESPONSE_CACHE_MAX_BYTES = 256 * 1024 * 1024;
+const BROTLI_CACHE_MAX_ENTRIES = 256;
+const BROTLI_CACHE_MAX_BYTES = 64 * 1024 * 1024;
+const responseCache = new Map(); // path -> {mtimeMs, size, data}
+let responseCacheBytes = 0;
+const brotliDecompressCache = new Map(); // path -> data
+let brotliDecompressCacheBytes = 0;
+
+const responseCacheEvictIfNeeded = () => {
+  while (
+    responseCache.size > RESPONSE_CACHE_MAX_ENTRIES ||
+    responseCacheBytes > RESPONSE_CACHE_MAX_BYTES
+  ) {
+    const oldest = responseCache.keys().next();
+    if (oldest.done) break;
+    responseCacheBytes -= responseCache.get(oldest.value).data.length;
+    responseCache.delete(oldest.value);
+  }
+};
+
+const brotliCacheGet = (cacheKey, source) => {
+  const entry = brotliDecompressCache.get(cacheKey);
+  if (entry && entry.source === source) {
+    brotliDecompressCache.delete(cacheKey);
+    brotliDecompressCache.set(cacheKey, entry);
+    return entry.data;
+  }
+  return undefined;
+};
+
+const brotliCacheDelete = (cacheKey) => {
+  const entry = brotliDecompressCache.get(cacheKey);
+  if (entry !== undefined) {
+    brotliDecompressCacheBytes -= entry.data.length;
+    brotliDecompressCache.delete(cacheKey);
+  }
+};
+
+const brotliCachePut = (cacheKey, entry) => {
+  brotliCacheDelete(cacheKey);
+  brotliDecompressCache.set(cacheKey, entry);
+  brotliDecompressCacheBytes += entry.data.length;
+  while (
+    brotliDecompressCache.size > BROTLI_CACHE_MAX_ENTRIES ||
+    brotliDecompressCacheBytes > BROTLI_CACHE_MAX_BYTES
+  ) {
+    const oldest = brotliDecompressCache.keys().next();
+    if (oldest.done) break;
+    brotliDecompressCacheBytes -= brotliDecompressCache.get(oldest.value).data.length;
+    brotliDecompressCache.delete(oldest.value);
+  }
+};
+
+const responseCacheGet = (path, stat) => {
+  const entry = responseCache.get(path);
+  if (entry && entry.mtimeMs === stat.mtimeMs && entry.size === stat.size) {
+    return entry.data;
+  }
+  if (entry) {
+    responseCache.delete(path);
+    responseCacheBytes -= entry.size;
+  }
+  return null;
+};
+
+const responseCachePut = (path, stat, data) => {
+  if (data.length > RESPONSE_CACHE_MAX_BYTES) {
+    return data;
+  }
+  responseCache.set(path, {
+    mtimeMs: stat.mtimeMs,
+    size: stat.size,
+    data
+  });
+  responseCacheBytes += data.length;
+  responseCacheEvictIfNeeded();
+  return data;
+};
+
+/**
+ * Read a file with mtime-validated memory caching.
+ * Returns null if the file does not exist.
+ */
+const cachedReadFile = async (fs, path) => {
+  let stat;
+  try {
+    stat = await fs.promises.stat(path);
+  } catch (e) {
+    return null;
+  }
+  if (!stat.isFile()) {
+    return null;
+  }
+  const cached = responseCacheGet(path, stat);
+  if (cached) {
+    return cached;
+  }
+  const data = await fs.promises.readFile(path);
+  return responseCachePut(path, stat, data);
+};
+
 /**
  * @param {unknown} xml
  * @returns {string}
@@ -189,7 +292,7 @@ const getBaseProtocolHeaders = metadata => {
     result['content-security-policy'] = metadata.csp;
   }
 
-  // Don't allow things like extensiosn to embed custom protocols
+  // Don't allow extensions to embed custom protocols
   if (!metadata.embeddable) {
     result['x-frame-options'] = 'DENY';
   }
@@ -250,15 +353,23 @@ const createModernProtocolHandler = (metadata) => {
         // files from the asar that I can settle with this.
         const fs = require('fs');
         try {
-          const brotliData = await fs.promises.readFile(`${resolved}.br`);
-          const decompressed = await brotliDecompress(brotliData);
+          const brotliData = await cachedReadFile(fs, `${resolved}.br`);
+          if (brotliData === null) {
+            throw new Error(`File not found locally: ${resolved}.br`);
+          }
+          const cacheKey = `${resolved}.br!decompressed`;
+          let decompressed = brotliCacheGet(cacheKey, brotliData);
+          if (decompressed === undefined) {
+            decompressed = await brotliDecompress(brotliData);
+            brotliCachePut(cacheKey, {source: brotliData, data: decompressed});
+          }
           return new Response(decompressed, {
             headers
           });
         } catch (brotliError) {
           // Fallback to uncompressed file if .br file doesn't exist
-          if (fs.existsSync(resolved)) {
-            const fileData = await fs.promises.readFile(resolved);
+          const fileData = await cachedReadFile(fs, resolved);
+          if (fileData !== null) {
             return new Response(fileData, {
               headers
             });
@@ -270,17 +381,13 @@ const createModernProtocolHandler = (metadata) => {
 
       // For non-brotli protocols, use fs to read local files
       const fs = require('fs');
-      if (!fs.existsSync(resolved)) {
+      const fileData = await cachedReadFile(fs, resolved);
+      if (fileData === null) {
         return createErrorResponse(new Error(`File not found locally: ${resolved}`));
       }
-      try {
-        const fileData = await fs.promises.readFile(resolved);
-        return new Response(fileData, {
-          headers
-        });
-      } catch (error) {
-        return createErrorResponse(error);
-      }
+      return new Response(fileData, {
+        headers
+      });
     } catch (error) {
       return createErrorResponse(error);
     }
