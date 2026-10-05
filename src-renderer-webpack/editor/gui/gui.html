@@ -4,112 +4,54 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' cysoeditor://* tw-extensions://*; frame-src 'self' blob: cysoeditor://* tw-extensions://* https: http: data:; child-src 'self' blob:; connect-src 'self' cysoeditor://* tw-extensions://* https://gh-proxy.org https://raw.githubusercontent.com https://cyscrexthub.cc.cd https: http:; script-src 'self' 'unsafe-eval' 'unsafe-inline' blob: data: https://gh-proxy.org https://raw.githubusercontent.com https://cyscrexthub.cc.cd https: cysoeditor://* tw-extensions://*; script-src-elem 'self' 'unsafe-inline' blob: data: https://gh-proxy.org https://raw.githubusercontent.com https://cyscrexthub.cc.cd https: cysoeditor://* tw-extensions://*; worker-src 'self' blob: https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' blob: data: https://gh-proxy.org https://raw.githubusercontent.com https://cyscrexthub.cc.cd https: http: cysoeditor://* tw-extensions://*; font-src 'self' blob: data: https:; media-src 'self' blob: data: cysoeditor://* tw-extensions://* https:">
-    <!-- Unfortunately can't really enforce a CSP due to custom extensions -->
-    <style>
+    <!-- The CSP is deliberately permissive: user-installed extensions load inline code. -->
+            <style>
+      /* Mirrors aurora-splash.css. This inline copy owns the phase before React mounts and
+         aurora-splash.jsx takes over from there, so the two must stay visually identical. */
       .splash-screen {
         --aurora:
-          radial-gradient(circle at 20% 30%, rgba(70, 220, 160, 0.40) 0%, transparent 35%),
-          radial-gradient(circle at 80% 70%, rgba(150, 90, 230, 0.50) 0%, transparent 40%),
-          radial-gradient(circle at 45% 75%, rgba(240, 160, 180, 0.45) 0%, transparent 30%),
-          radial-gradient(circle at 65% 25%, rgba(50, 200, 220, 0.35) 0%, transparent 45%),
-          linear-gradient(145deg, #030617, #1b263b, #030617);
+          radial-gradient(circle at 22% 28%, rgba(70, 220, 160, 0.26) 0%, transparent 48%),
+          radial-gradient(circle at 78% 72%, rgba(150, 90, 230, 0.28) 0%, transparent 52%),
+          radial-gradient(circle at 62% 18%, rgba(50, 200, 220, 0.20) 0%, transparent 46%),
+          radial-gradient(circle at 38% 82%, rgba(240, 160, 180, 0.18) 0%, transparent 44%);
+        --base: linear-gradient(155deg, #050a18, #101a2c 55%, #050a18);
         --text: #eef3ff;
-        --text-dim: rgba(238, 243, 255, 0.62);
+        --text-dim: rgba(238, 243, 255, 0.55);
+        --track: rgba(255, 255, 255, 0.12);
         --accent: #4f8ec2;
 
-        position: absolute;
+        position: fixed;
         inset: 0;
         width: 100%;
         height: 100%;
         overflow: hidden;
-        z-index: 9999;
+        z-index: 6000;
         display: flex;
         align-items: center;
         justify-content: center;
         text-align: center;
         font-family: "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
         color: var(--text);
-        background: var(--aurora);
-        transition: opacity 0.7s ease;
-        --p: 0%;
+        background: var(--base);
+        transition: opacity 0.6s ease;
+        animation: splashIn 0.5s ease;
+        --p: 0;
       }
-      .splash-screen[hidden] {
-        display: none;
-      }
+      .splash-screen[hidden] { display: none; }
       .splash-screen.splash-done {
         opacity: 0;
         pointer-events: none;
       }
+      @keyframes splashIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
 
       .aurora-field {
         position: absolute;
-        inset: -12%;
+        inset: 0;
         z-index: 1;
-        background: var(--aurora);
-        animation: auroraBreathe 9s ease-in-out infinite;
-        -webkit-mask-image: linear-gradient(to right, #000 var(--p), rgba(0, 0, 0, 0) calc(var(--p) + 13%));
-        mask-image: linear-gradient(to right, #000 var(--p), rgba(0, 0, 0, 0) calc(var(--p) + 13%));
-        will-change: transform;
-      }
-      .blob {
-        position: absolute;
-        width: 60vmax;
-        height: 60vmax;
-        border-radius: 50%;
-        filter: blur(20px);
-        opacity: 0.7;
-        mix-blend-mode: screen;
-      }
-      .splash-screen[data-theme="light"] .blob,
-      .splash-screen[data-theme="misty-sand"] .blob {
-        mix-blend-mode: multiply;
-        opacity: 0.46;
-      }
-      .blob-green  { top: -10%; left: -8%;   background: radial-gradient(circle at 50% 50%, rgba(70, 220, 160, 0.55) 0%, rgba(70, 220, 160, 0) 65%);  animation: driftGreen  22s ease-in-out infinite; }
-      .blob-purple { bottom: -14%; right: -6%; background: radial-gradient(circle at 50% 50%, rgba(150, 90, 230, 0.62) 0%, rgba(150, 90, 230, 0) 66%); animation: driftPurple 26s ease-in-out infinite; }
-      .blob-pink   { bottom: -16%; left: 28%;  background: radial-gradient(circle at 50% 50%, rgba(240, 160, 180, 0.55) 0%, rgba(240, 160, 180, 0) 60%); animation: driftPink   20s ease-in-out infinite; }
-      .blob-cyan   { top: -12%; right: 16%;   background: radial-gradient(circle at 50% 50%, rgba(50, 200, 220, 0.48) 0%, rgba(50, 200, 220, 0) 68%); animation: driftCyan   24s ease-in-out infinite; }
-
-      .aurora-stream {
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(116deg,
-          rgba(70, 220, 160, 0) 0%,
-          rgba(70, 220, 160, 0.34) 11%,
-          rgba(150, 90, 230, 0.30) 27%,
-          rgba(240, 160, 180, 0.28) 43%,
-          rgba(50, 200, 220, 0.34) 59%,
-          rgba(120, 200, 255, 0.26) 75%,
-          rgba(70, 220, 160, 0) 100%);
-        background-size: 230% 230%;
-        filter: blur(1.5px) saturate(135%);
-        opacity: 0.9;
-      }
-      .splash-screen[data-theme="light"] .aurora-stream,
-      .splash-screen[data-theme="misty-sand"] .aurora-stream {
-        opacity: 0.5;
-      }
-      .aurora-stream.dir-r { animation: flowR 2.6s linear infinite; }
-      .aurora-stream.dir-l { animation: flowL 2.6s linear infinite; }
-      .aurora-stream.dir-u { animation: flowU 2.6s linear infinite; }
-      .aurora-stream.dir-d { animation: flowD 2.6s linear infinite; }
-
-      .aurora-veil {
-        position: absolute;
-        inset: 0;
-        background: var(--aurora);
-        opacity: 0.1;
-        animation: veilPulse 9s ease-in-out infinite;
-      }
-      .aurora-vignette {
-        position: absolute;
-        inset: 0;
-        background: radial-gradient(120% 120% at 50% 45%, transparent 58%, rgba(0, 0, 0, 0.42) 100%);
-        pointer-events: none;
-      }
-      .splash-screen[data-theme="light"] .aurora-vignette,
-      .splash-screen[data-theme="misty-sand"] .aurora-vignette {
-        background: radial-gradient(120% 120% at 50% 45%, transparent 60%, rgba(20, 28, 44, 0.26) 100%);
+        background-image: var(--aurora), var(--base);
       }
 
       .brand {
@@ -118,32 +60,27 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        gap: 10px;
+        gap: 12px;
         pointer-events: none;
-        text-shadow: 0 2px 22px rgba(0, 0, 0, 0.45);
-      }
-      .splash-screen[data-theme="light"] .brand,
-      .splash-screen[data-theme="misty-sand"] .brand {
-        text-shadow: 0 2px 16px rgba(255, 255, 255, 0.5);
+        user-select: none;
       }
       .brand-logo {
-        font-size: clamp(46px, 9.5vw, 92px);
+        font-size: clamp(40px, 8vw, 76px);
         font-weight: 800;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.06em;
         line-height: 1;
         color: var(--text);
-        animation: logoPulse 5s ease-in-out infinite;
       }
       .brand-logo b {
         color: var(--accent);
         font-weight: 800;
       }
       .brand-sub {
-        font-size: clamp(12px, 1.6vw, 16px);
-        letter-spacing: 0.46em;
+        font-size: clamp(11px, 1.4vw, 14px);
+        letter-spacing: 0.42em;
         text-transform: uppercase;
         color: var(--text-dim);
-        padding-left: 0.46em;
+        padding-left: 0.42em;
       }
 
       .progress-foot {
@@ -152,175 +89,104 @@
         right: 0;
         bottom: 0;
         z-index: 4;
-        padding: 0 0 26px;
+        padding: 0 clamp(20px, 4vw, 44px) clamp(16px, 2.6vh, 24px);
         display: flex;
         flex-direction: column;
-        align-items: center;
-        gap: 5px;
+        gap: 10px;
         pointer-events: none;
+        user-select: none;
       }
-      .progress-label {
+      .progress-row {
         display: flex;
         align-items: baseline;
-        gap: 10px;
-        font-size: 13px;
-        letter-spacing: 0.1em;
-        color: var(--text-dim);
-        text-shadow: 0 1px 12px rgba(0, 0, 0, 0.5);
-      }
-      .splash-screen[data-theme="light"] .progress-label,
-      .splash-screen[data-theme="misty-sand"] .progress-label {
-        text-shadow: 0 1px 10px rgba(255, 255, 255, 0.5);
-      }
-      .progress-label b {
-        font-size: 23px;
-        font-weight: 700;
-        color: var(--text);
-        font-variant-numeric: tabular-nums;
-        min-width: 3.4ch;
-        text-align: right;
+        justify-content: space-between;
+        gap: 20px;
       }
       .progress-status {
-        font-size: 12px;
-        letter-spacing: 0.06em;
+        font-size: 12.5px;
+        letter-spacing: 0.04em;
         color: var(--text-dim);
-        text-shadow: 0 1px 10px rgba(0, 0, 0, 0.5);
-        min-height: 1.2em;
+        min-height: 1.3em;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
-      .splash-screen[data-theme="light"] .progress-status,
-      .splash-screen[data-theme="misty-sand"] .progress-status {
-        text-shadow: 0 1px 10px rgba(255, 255, 255, 0.5);
+      .progress-row b {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text);
+        font-variant-numeric: tabular-nums;
+        flex: none;
       }
-
-      @keyframes auroraBreathe {
-        0%, 100% { transform: scale(1);    opacity: 0.92; }
-        50%      { transform: scale(1.06); opacity: 1;    }
+      .progress-track {
+        position: relative;
+        width: 100%;
+        height: 2px;
+        background: var(--track);
+        overflow: hidden;
       }
-      @keyframes veilPulse {
-        0%, 100% { opacity: 0.06; }
-        50%      { opacity: 0.16; }
+      .progress-fill {
+        position: absolute;
+        inset: 0;
+        transform: scaleX(var(--p, 0));
+        transform-origin: left center;
+        background: var(--accent);
       }
-      @keyframes logoPulse {
-        0%, 100% { opacity: 0.92; }
-        50%      { opacity: 1;    }
-      }
-      @keyframes driftGreen {
-        0%   { transform: translate(0, 0) scale(1); }
-        33%  { transform: translate(9vmax, 6vmax) scale(1.14); }
-        66%  { transform: translate(2vmax, 11vmax) scale(0.92); }
-        100% { transform: translate(0, 0) scale(1); }
-      }
-      @keyframes driftPurple {
-        0%   { transform: translate(0, 0) scale(1); }
-        33%  { transform: translate(-10vmax, -5vmax) scale(0.9); }
-        66%  { transform: translate(-3vmax, -10vmax) scale(1.12); }
-        100% { transform: translate(0, 0) scale(1); }
-      }
-      @keyframes driftPink {
-        0%   { transform: translate(0, 0) scale(1); }
-        33%  { transform: translate(6vmax, -7vmax) scale(1.1); }
-        66%  { transform: translate(-5vmax, -3vmax) scale(0.95); }
-        100% { transform: translate(0, 0) scale(1); }
-      }
-      @keyframes driftCyan {
-        0%   { transform: translate(0, 0) scale(1); }
-        33%  { transform: translate(-7vmax, 7vmax) scale(1.06); }
-        66%  { transform: translate(5vmax, 4vmax) scale(0.92); }
-        100% { transform: translate(0, 0) scale(1); }
-      }
-      @keyframes flowR { from { background-position: 0% 50%; }   to { background-position: 100% 50%; } }
-      @keyframes flowL { from { background-position: 100% 50%; } to { background-position: 0% 50%; } }
-      @keyframes flowU { from { background-position: 50% 100%; } to { background-position: 50% 0%; } }
-      @keyframes flowD { from { background-position: 50% 0%; }   to { background-position: 50% 100%; } }
 
       .splash-screen[data-theme="dark"] {
         --text: #f2f4f8;
-        --text-dim: rgba(242, 244, 248, 0.58);
+        --text-dim: rgba(242, 244, 248, 0.52);
       }
 
       .splash-screen[data-theme="light"] {
         --aurora:
-          radial-gradient(circle at 20% 30%, rgba(40, 170, 120, 0.30) 0%, transparent 38%),
-          radial-gradient(circle at 80% 70%, rgba(120, 70, 200, 0.30) 0%, transparent 42%),
-          radial-gradient(circle at 45% 75%, rgba(220, 120, 150, 0.26) 0%, transparent 32%),
-          radial-gradient(circle at 65% 25%, rgba(40, 160, 190, 0.26) 0%, transparent 46%),
-          linear-gradient(160deg, #f3f6fb, #e4e9f2, #d7deea);
+          radial-gradient(circle at 22% 28%, rgba(40, 170, 120, 0.18) 0%, transparent 48%),
+          radial-gradient(circle at 78% 72%, rgba(120, 70, 200, 0.18) 0%, transparent 52%),
+          radial-gradient(circle at 62% 18%, rgba(40, 160, 190, 0.15) 0%, transparent 46%),
+          radial-gradient(circle at 38% 82%, rgba(220, 120, 150, 0.14) 0%, transparent 44%);
+        --base: linear-gradient(160deg, #f6f8fc, #e8edf5 55%, #f2f5fa);
         --text: #1b2330;
-        --text-dim: rgba(27, 35, 48, 0.58);
+        --text-dim: rgba(27, 35, 48, 0.52);
+        --track: rgba(20, 28, 44, 0.10);
+        --accent: #4f8ec2;
       }
-      .splash-screen[data-theme="light"] .blob-green  { background: radial-gradient(circle at 50% 50%, rgba(40, 170, 120, 0.42) 0%, rgba(40, 170, 120, 0) 66%); }
-      .splash-screen[data-theme="light"] .blob-purple { background: radial-gradient(circle at 50% 50%, rgba(120, 70, 200, 0.42) 0%, rgba(120, 70, 200, 0) 66%); }
-      .splash-screen[data-theme="light"] .blob-pink   { background: radial-gradient(circle at 50% 50%, rgba(220, 120, 150, 0.38) 0%, rgba(220, 120, 150, 0) 62%); }
-      .splash-screen[data-theme="light"] .blob-cyan   { background: radial-gradient(circle at 50% 50%, rgba(40, 160, 190, 0.38) 0%, rgba(40, 160, 190, 0) 68%); }
 
       .splash-screen[data-theme="misty-sand"] {
         --aurora:
-          radial-gradient(circle at 20% 30%, rgba(90, 180, 140, 0.26) 0%, transparent 40%),
-          radial-gradient(circle at 80% 70%, rgba(150, 120, 210, 0.24) 0%, transparent 44%),
-          radial-gradient(circle at 45% 75%, rgba(225, 170, 150, 0.22) 0%, transparent 34%),
-          radial-gradient(circle at 65% 25%, rgba(110, 180, 200, 0.22) 0%, transparent 48%),
-          linear-gradient(160deg, #eef4fb, #f7f1e8 50%, #eef5f0);
+          radial-gradient(circle at 22% 28%, rgba(90, 180, 140, 0.16) 0%, transparent 48%),
+          radial-gradient(circle at 78% 72%, rgba(150, 120, 210, 0.15) 0%, transparent 52%),
+          radial-gradient(circle at 62% 18%, rgba(110, 180, 200, 0.14) 0%, transparent 46%),
+          radial-gradient(circle at 38% 82%, rgba(225, 170, 150, 0.14) 0%, transparent 44%);
+        --base: linear-gradient(160deg, #eff4fa, #f7f2ea 52%, #eff5f1);
         --text: #2a3340;
-        --text-dim: rgba(42, 51, 64, 0.58);
+        --text-dim: rgba(42, 51, 64, 0.52);
+        --track: rgba(42, 51, 64, 0.10);
+        --accent: #4f8ec2;
       }
-      .splash-screen[data-theme="misty-sand"] .blob-green  { background: radial-gradient(circle at 50% 50%, rgba(90, 180, 140, 0.36) 0%, rgba(90, 180, 140, 0) 66%); }
-      .splash-screen[data-theme="misty-sand"] .blob-purple { background: radial-gradient(circle at 50% 50%, rgba(150, 120, 210, 0.34) 0%, rgba(150, 120, 210, 0) 66%); }
-      .splash-screen[data-theme="misty-sand"] .blob-pink   { background: radial-gradient(circle at 50% 50%, rgba(225, 170, 150, 0.32) 0%, rgba(225, 170, 150, 0) 62%); }
-      .splash-screen[data-theme="misty-sand"] .blob-cyan   { background: radial-gradient(circle at 50% 50%, rgba(110, 180, 200, 0.32) 0%, rgba(110, 180, 200, 0) 68%); }
 
       .splash-screen[data-theme="misty-sand-dark"] {
         --aurora:
-          radial-gradient(circle at 20% 30%, rgba(90, 180, 140, 0.24) 0%, transparent 40%),
-          radial-gradient(circle at 80% 70%, rgba(150, 120, 210, 0.26) 0%, transparent 44%),
-          radial-gradient(circle at 45% 75%, rgba(225, 170, 150, 0.20) 0%, transparent 34%),
-          radial-gradient(circle at 65% 25%, rgba(110, 180, 200, 0.22) 0%, transparent 48%),
-          linear-gradient(160deg, #1a1c24, #212127 50%, #1c1e24);
+          radial-gradient(circle at 22% 28%, rgba(90, 180, 140, 0.16) 0%, transparent 48%),
+          radial-gradient(circle at 78% 72%, rgba(150, 120, 210, 0.18) 0%, transparent 52%),
+          radial-gradient(circle at 62% 18%, rgba(110, 180, 200, 0.15) 0%, transparent 46%),
+          radial-gradient(circle at 38% 82%, rgba(225, 170, 150, 0.13) 0%, transparent 44%);
+        --base: linear-gradient(160deg, #191b22, #212127 52%, #1b1d23);
         --text: #e8e9ee;
-        --text-dim: rgba(232, 233, 238, 0.6);
+        --text-dim: rgba(232, 233, 238, 0.55);
+        --track: rgba(255, 255, 255, 0.12);
         --accent: #7db3f5;
-      }
-      .splash-screen[data-theme="misty-sand-dark"] .blob-green  { background: radial-gradient(circle at 50% 50%, rgba(90, 180, 140, 0.45) 0%, rgba(90, 180, 140, 0) 66%); }
-      .splash-screen[data-theme="misty-sand-dark"] .blob-purple { background: radial-gradient(circle at 50% 50%, rgba(150, 120, 210, 0.48) 0%, rgba(150, 120, 210, 0) 66%); }
-      .splash-screen[data-theme="misty-sand-dark"] .blob-pink   { background: radial-gradient(circle at 50% 50%, rgba(225, 170, 150, 0.42) 0%, rgba(225, 170, 150, 0) 62%); }
-      .splash-screen[data-theme="misty-sand-dark"] .blob-cyan   { background: radial-gradient(circle at 50% 50%, rgba(110, 180, 200, 0.44) 0%, rgba(110, 180, 200, 0) 68%); }
-      .splash-screen[data-theme="misty-sand-dark"] .aurora-stream { opacity: 0.85; }
-      .splash-screen[data-theme="misty-sand-dark"] .aurora-vignette {
-        background: radial-gradient(120% 120% at 50% 45%, transparent 60%, rgba(0, 0, 0, 0.45) 100%);
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .splash-screen,
-        .aurora-field,
-        .aurora-veil,
-        .blob,
-        .aurora-stream.dir-r,
-        .aurora-stream.dir-l,
-        .aurora-stream.dir-u,
-        .aurora-stream.dir-d,
-        .brand-logo {
-          animation: none !important;
-        }
-        .aurora-stream {
-          background-size: 150% 150%;
-          background-position: 50% 50%;
-          opacity: 0.55;
-        }
+        .splash-screen { animation: none !important; }
       }
     </style>
   </head>
   <body>
     <div id="app"></div>
 
-    <div class="splash-screen" id="spash-waiting-for-js" hidden>
-      <div class="aurora-field">
-        <span class="blob blob-green"></span>
-        <span class="blob blob-purple"></span>
-        <span class="blob blob-pink"></span>
-        <span class="blob blob-cyan"></span>
-        <div class="aurora-stream dir-r" id="auroraStream"></div>
-        <div class="aurora-veil"></div>
-        <div class="aurora-vignette"></div>
-      </div>
+    <div class="splash-screen" id="splash-waiting-for-js" hidden>
+      <div class="aurora-field"></div>
 
       <div class="brand">
         <div class="brand-logo">CY<b>SO</b></div>
@@ -328,22 +194,22 @@
       </div>
 
       <div class="progress-foot">
-        <div class="progress-label">
-          <span>正在载入</span>
+        <div class="progress-row">
+          <div class="progress-status" id="progressStatus">正在初始化…</div>
           <b id="progressPct">0%</b>
         </div>
-        <div class="progress-status" id="progressStatus">正在初始化…</div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
       </div>
     </div>
 
     <script>
       (function() {
-        var splash = document.getElementById('spash-waiting-for-js');
-        var app = document.getElementById('app');
+        var splash = document.getElementById('splash-waiting-for-js');
         var reduceMotion = !!(window.matchMedia &&
           window.matchMedia('(prefers-reduced-motion: reduce)').matches);
 
-        // theme (read before React from localStorage)
         var theme = 'aurora';
         var accent = '#4F8EC2';
         try {
@@ -374,192 +240,151 @@
         splash.style.setProperty('--accent', accent);
         splash.hidden = false;
 
-        var stream = document.getElementById('auroraStream');
+
         var pct = document.getElementById('progressPct');
         var statusEl = document.getElementById('progressStatus');
 
-        var dirs = ['dir-r', 'dir-l', 'dir-u', 'dir-d'];
-        var dir = 'dir-r';
-        var lastMilestone = -1;
+        // Stage ceilings for the pre-React phase; aurora-splash.jsx continues from HANDOFF_PROGRESS.
+        var GOAL_BOOT = 10;
+        var GOAL_BUNDLE = 22;
+        var GOAL_DOM = 32;
+        var HANDOFF_PROGRESS = 40;
+        var STATUS_BOOT = '正在初始化…';
+        var STATUS_BUNDLE = '正在加载界面…';
+        var STATUS_DOM = '正在准备编辑器…';
+
         var progress = 0;
-        var goal = 22;
-        var ready = false;
-        var sawLoader = false;
+        var goal = GOAL_BOOT;
+        var status = STATUS_BOOT;
+        var handedOff = false;
+        var reactReady = window.cysoReactSplashReady === true;
         var rafId = 0;
         var lastTs = 0;
+        var hideTimer = 0;
 
-        function setStatus(text) {
-          if (statusEl.textContent !== text) statusEl.textContent = text;
+        function render() {
+          splash.style.setProperty('--p', (progress / 100).toFixed(4));
+          pct.textContent = Math.round(progress) + '%';
+          if (statusEl.textContent !== status) statusEl.textContent = status;
         }
-        function setDir(next) {
-          if (next === dir) return;
-          dir = next;
-          stream.className = 'aurora-stream ' + next;
-        }
-        function randomDir() {
-          setDir(dirs[(Math.random() * dirs.length) | 0]);
-        }
-        function loaderPresent() {
-          return !!(app && app.querySelector('[class*="loader_background"], [class*="loader_fullscreen"]'));
-        }
-        function checkLoader() {
-          if (loaderPresent()) {
-            sawLoader = true;
-            setStatus('正在加载项目…');
-          } else if (sawLoader) {
-            sawLoader = false;
-            ready = true;
-            goal = 100;
-            setStatus('即将完成…');
-            stopWatching();
-            startLoop();
-          }
-        }
-        function update() {
-          var p = Math.max(0, Math.min(100, progress));
-          splash.style.setProperty('--p', p + '%');
-          pct.textContent = Math.round(p) + '%';
-          var ms = Math.floor(p / 15);
-          if (ms !== lastMilestone) {
-            lastMilestone = ms;
-            if (!reduceMotion) randomDir();
-          }
+        function advance(nextGoal, nextStatus) {
+          if (handedOff) return;
+          if (nextGoal > goal) goal = nextGoal;
+          status = nextStatus;
+          startLoop();
         }
         function frame(ts) {
-          if (splash.classList.contains('splash-done')) return;
+          rafId = 0;
           var dt = Math.min(64, ts - lastTs) / 1000;
           lastTs = ts;
           var diff = goal - progress;
-          if (Math.abs(diff) < 0.15) {
-            if (ready && progress >= 99.4) {
-              progress = 100;
-              update();
-              finish();
-              return;
-            }
-            rafId = 0;
-            return;
-          }
+          if (Math.abs(diff) < 0.15) return;
           progress += diff * Math.min(1, dt * 5);
-          if (!ready && progress > 96) progress = 96;
-          update();
+          render();
           rafId = window.requestAnimationFrame(frame);
         }
         function startLoop() {
-          if (rafId) return;
+          if (rafId || handedOff) return;
           lastTs = window.performance.now();
           rafId = window.requestAnimationFrame(frame);
         }
-        function finish() {
-          window.cysoBootDone = true;
+        function stop() {
+          if (rafId) {
+            window.cancelAnimationFrame(rafId);
+            rafId = 0;
+          }
+          if (hideTimer) {
+            window.clearTimeout(hideTimer);
+            hideTimer = 0;
+          }
+        }
+        function dismiss() {
+          stop();
           splash.classList.add('splash-done');
-          window.setTimeout(function() {
+          hideTimer = window.setTimeout(function() {
+            hideTimer = 0;
             splash.hidden = true;
-            stopWatching();
           }, 720);
         }
 
-        var appMo = null, twMo = null, loaderTimer = 0, po = null;
-        function stopWatching() {
-          if (appMo) { appMo.disconnect(); appMo = null; }
-          if (twMo) { twMo.disconnect(); twMo = null; }
-          if (loaderTimer) { window.clearInterval(loaderTimer); loaderTimer = 0; }
-          if (po) { po.disconnect(); po = null; }
-          if (rafId) { window.cancelAnimationFrame(rafId); rafId = 0; }
+        /*
+            交接后不能立刻淡出：React 挂载完成到它画出加载界面之间有空档，此时 #app 还是空的。
+            监听提前注册，两种触发顺序都能接上。
+        */
+        window.addEventListener('cyso:react-splash-ready', function onReady() {
+          window.removeEventListener('cyso:react-splash-ready', onReady);
+          reactReady = true;
+          if (handedOff) {
+            window.setTimeout(dismiss, 60);
+          }
+        });
+
+        function dismissWhenReactReady() {
+          if (reactReady) {
+            window.setTimeout(dismiss, 60);
+            return;
+          }
+          // 交接后 React 一直没接管（例如脚本被拦截）时也要放行，不能一直挡着。
+          window.setTimeout(function () {
+            if (!reactReady) {
+              dismiss();
+            }
+          }, 8000);
         }
 
-        // entry bundle fetched (index.js)
+        function handOff() {
+          if (handedOff) return;
+          handedOff = true;
+          stop();
+          window.cysoBootDone = true;
+          window.dispatchEvent(new CustomEvent('cyso:load-handoff', {
+            detail: {progress: Math.max(progress, HANDOFF_PROGRESS), status: status}
+          }));
+          dismissWhenReactReady();
+        }
+
         if ('PerformanceObserver' in window) {
           try {
-            po = new PerformanceObserver(function(list) {
+            var po = new PerformanceObserver(function(list) {
               list.getEntries().forEach(function(e) {
                 if (/\/index\.js(\?|$)/.test(e.name || '') && e.responseEnd) {
-                  goal = Math.max(goal, 58);
-                  setStatus('正在加载界面…');
-                  startLoop();
                   po.disconnect();
                   po = null;
+                  advance(GOAL_BUNDLE, STATUS_BUNDLE);
                 }
               });
             });
-            po.observe({ entryTypes: ['resource'] });
+            po.observe({entryTypes: ['resource']});
           } catch (e) { /* ignore */ }
         }
 
-        // DOM parsed + entry script executing -> React is mounting
         function onDomReady() {
-          goal = Math.max(goal, 72);
-          setStatus('正在准备编辑器…');
-          startLoop();
+          advance(GOAL_DOM, STATUS_DOM);
         }
         if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', onDomReady, { once: true });
+          document.addEventListener('DOMContentLoaded', onDomReady, {once: true});
         } else {
           onDomReady();
         }
 
-        // React finished mounting: index.jsx adds 'tw-loaded' to <body>
         if ('MutationObserver' in window) {
-          twMo = new MutationObserver(function(muts) {
+          var mo = new MutationObserver(function(muts) {
             for (var i = 0; i < muts.length; i++) {
               var t = muts[i].target;
               if (t.classList && t.classList.contains('tw-loaded')) {
-                goal = Math.max(goal, 88);
-                setStatus('正在准备编辑器…');
-                startLoop();
-                twMo.disconnect();
-                twMo = null;
+                mo.disconnect();
+                mo = null;
+                handOff();
                 return;
               }
             }
           });
-          twMo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
-
-          appMo = new MutationObserver(function() {
-            checkLoader();
-            startLoop();
-          });
-          appMo.observe(app, { childList: true, subtree: true });
+          mo.observe(document.body, {attributes: true, attributeFilter: ['class']});
         }
-        loaderTimer = window.setInterval(checkLoader, 300);
 
-        window.addEventListener('load', function() {
-          goal = Math.max(goal, 90);
-          startLoop();
-        });
-
-        // real sub-stage progress forwarded from loader.jsx
-        window.addEventListener('cyso:load-progress', function(e) {
-          if (ready) return;
-          var d = (e && e.detail) || {};
-          if (d.total === 0) {
-            goal = Math.max(goal, 88);
-            setStatus('正在解析项目…');
-          } else {
-            goal = Math.min(96, 88 + (d.finished / d.total) * 8);
-            setStatus((d.isRemote ? '正在下载素材 (' : '正在加载素材 (') +
-              d.finished + '/' + d.total + ')…');
-          }
-          startLoop();
-        });
-        window.addEventListener('cyso:load-done', function() {
-          if (!ready) {
-            ready = true;
-            goal = 100;
-            setStatus('即将完成…');
-            stopWatching();
-            startLoop();
-          }
-        });
-
-        // safety net: only if the editor never signals readiness
+        // The entry bundle never arrived, so React will never mount and nothing can take over.
         window.setTimeout(function() {
-          if (!ready) {
-            ready = true;
-            goal = 100;
-            setStatus('即将完成…');
-            startLoop();
-          }
+          if (!handedOff) handOff();
         }, 25000);
 
         startLoop();

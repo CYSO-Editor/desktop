@@ -38,15 +38,24 @@ ipcRenderer.on('global-shortcut-triggered', (event, data) => {
   }
 });
 
+const readInitialFullscreenArg = () => {
+  const prefix = '--cyso-initial-fullscreen=';
+  const arg = process.argv.find(a => a.startsWith(prefix));
+  return arg ? arg.slice(prefix.length) === 'true' : null;
+};
+const initialFullscreenFromArg = readInitialFullscreenArg();
+
 contextBridge.exposeInMainWorld('EditorPreload', {
-  isInitiallyFullscreen: () => ipcRenderer.sendSync('is-initially-fullscreen'),
+  isInitiallyFullscreen: () => initialFullscreenFromArg !== null ?
+    initialFullscreenFromArg :
+    ipcRenderer.sendSync('is-initially-fullscreen'),
   getInitialFile: () => ipcRenderer.invoke('get-initial-file'),
   getFile: (id) => ipcRenderer.invoke('get-file', id),
   openedFile: (id) => ipcRenderer.invoke('opened-file', id),
   closedFile: () => ipcRenderer.invoke('closed-file'),
   showSaveFilePicker: (suggestedName) => ipcRenderer.invoke('show-save-file-picker', suggestedName),
   showOpenFilePicker: (options) => ipcRenderer.invoke('show-open-file-picker', options || null),
-  setLocale: (locale) => ipcRenderer.sendSync('set-locale', locale),
+  setLocale: (locale) => ipcRenderer.invoke('set-locale', locale),
   setChanged: (changed) => ipcRenderer.invoke('set-changed', changed),
   openNewWindow: () => ipcRenderer.invoke('open-new-window'),
   openAddonSettings: (search) => ipcRenderer.invoke('open-addon-settings', search),
@@ -139,7 +148,50 @@ contextBridge.exposeInMainWorld('EditorPreload', {
 
   setNativeTheme: (isDark) => {
     ipcRenderer.send('tw-set-native-theme', isDark);
-  }
+  },
+
+  getRenderSettings: () => ipcRenderer.invoke('get-render-settings'),
+  onRenderSettingsChanged: (callback) => {
+    ipcRenderer.on('cyso:render-settings', (event, renderSettings) => {
+      try {
+        callback(renderSettings);
+      } catch (error) {
+        console.error('onRenderSettingsChanged callback error:', error);
+      }
+    });
+  },
+
+  /**
+   * 读取当前已知的可用更新版本号。
+   * 首屏渲染可能晚于更新检查完成，这时主动拉一次而不是只等推送。
+   * @returns {Promise<string>} 空字符串表示没有可用更新
+   */
+  getUpdateAvailableVersion: () => ipcRenderer.invoke('get-update-available-version'),
+
+  /**
+   * 订阅「可用更新版本」变化。传空字符串表示已经没有可用更新。
+   * @param {(version: string) => void} callback
+   * @returns {() => void} 取消订阅
+   */
+  onUpdateAvailableChanged: (callback) => {
+    const handler = (event, version) => {
+      try {
+        callback(typeof version === 'string' ? version : '');
+      } catch (error) {
+        console.error('onUpdateAvailableChanged callback error:', error);
+      }
+    };
+    ipcRenderer.on('cyso:update-available', handler);
+    return () => ipcRenderer.removeListener('cyso:update-available', handler);
+  },
+
+  /**
+   * 用户点击菜单栏提示后打开更新窗口。
+   * @returns {Promise<{opened: boolean}>}
+   */
+  openUpdateWindow: () => ipcRenderer.invoke('open-update-window'),
+
+  getExtensionCache: (url) => ipcRenderer.invoke('get-extension-cache', url)
 });
 
 let exportForPackager = () => Promise.reject(new Error('exportForPackager missing'));
