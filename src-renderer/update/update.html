@@ -4,9 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <style>
+      html {
+        overflow-x: hidden;
+      }
       body {
         margin: 0;
         padding: 0;
+        overflow-x: hidden;
         font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
         color: black;
         background-color: white;
@@ -14,33 +18,133 @@
       main {
         padding: 20px;
         box-sizing: border-box;
-        width: 100vw;
-        height: 100vh;
+        width: 100%;
+        max-width: 100%;
+        min-height: 100vh;
         border: 20px solid #32c8dc;
         display: flex;
         flex-direction: column;
+        gap: 0.75rem;
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+
+      h1, p {
+        margin: 0;
+        overflow-wrap: anywhere;
+      }
+      h1 {
+        font-size: 1.25rem;
+      }
+
+      .version-line {
+        display: flex;
+        align-items: baseline;
+        flex-wrap: wrap;
         gap: 0.5rem;
       }
-
-      h1, h2, p {
-        margin: 0;
-      }
-      ul {
-        margin: 0.5rem 0;
+      .version-current {
+        opacity: 0.65;
+        font-size: 0.9rem;
       }
 
-      .update-log {
-        width: 100%;
-        flex-grow: 1;
-        border: 0;
-        overflow: auto;
+      .section {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+        flex-shrink: 0;
       }
-      .loading, .error, .empty {
-        width: 100%;
-        height: 100%;
+      .section-label {
+        font-size: 0.85rem;
+        font-weight: bold;
+        opacity: 0.75;
+      }
+
+      .source-row {
         display: flex;
         align-items: center;
-        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.5rem;
+        border: 1px solid #24cd11;
+        background-color: rgba(36, 205, 17, 0.08);
+        border-radius: 0.25rem;
+      }
+      .source-info {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+      .source-name {
+        font-weight: bold;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .source-meta {
+        font-size: 0.85em;
+        opacity: 0.7;
+      }
+      .no-source {
+        color: #b00020;
+        font-size: 0.9rem;
+      }
+
+      .proxy-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+        max-height: 8rem;
+        overflow-y: auto;
+      }
+      .proxy-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.4rem 0.5rem;
+        border: 1px solid hsla(0, 0%, 0%, 0.15);
+        border-radius: 0.25rem;
+      }
+      .proxy-row input {
+        flex-shrink: 0;
+      }
+      .proxy-row .source-name {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+
+      .progress-bar {
+        width: 100%;
+        height: 0.75rem;
+        border: 1px solid hsla(0, 0%, 0%, 0.15);
+        border-radius: 0.25rem;
+        overflow: hidden;
+        background-color: white;
+      }
+      .progress-fill {
+        height: 100%;
+        width: 0%;
+        background-color: #24cd11;
+        transition: width 0.2s ease;
+      }
+      .progress-text {
+        font-size: 0.9em;
+        min-height: 1.2em;
+      }
+      .installer-location {
+        margin: 0.2rem 0 0;
+        font-size: 0.85em;
+        opacity: 0.75;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .actions,
+      .inline-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        flex-shrink: 0;
       }
       button {
         cursor: pointer;
@@ -51,175 +155,578 @@
         border: 1px solid hsla(0, 0%, 0%, 0.15);
         font-weight: bold;
       }
+      button:disabled {
+        cursor: default;
+        opacity: 0.6;
+      }
       .download-button {
         color: black;
         background-color: #24cd11;
       }
-      .ignore-button {
 
-      }
       label {
         cursor: pointer;
       }
-
-      .if-security {
-        display: none;
+      .ignore-toggle-outer {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-shrink: 0;
+        margin-top: 0.6rem;
       }
-      .security .if-security {
-        display: initial;
+      .ignore-toggle {
+        position: relative;
+        flex-shrink: 0;
+        width: 2.4rem;
+        height: 1.3rem;
+        margin: 0;
+        appearance: none;
+        -webkit-appearance: none;
+        background-color: #b0b0b0;
+        border-radius: 0.65rem;
+        cursor: pointer;
+        transition: background-color 0.15s ease;
       }
-      .security .if-normal {
-        display: none;
+      .ignore-toggle::after {
+        content: '';
+        position: absolute;
+        top: 0.15rem;
+        left: 0.15rem;
+        width: 1rem;
+        height: 1rem;
+        border-radius: 50%;
+        background-color: white;
+        transition: transform 0.15s ease;
+      }
+      .ignore-toggle:checked {
+        background-color: #4F8EC2;
+      }
+      .ignore-toggle:checked::after {
+        transform: translateX(1.1rem);
+      }
+      .ignore-toggle:focus-visible {
+        outline: 2px solid #4F8EC2;
+        outline-offset: 2px;
+      }
+      .ignore-toggle-note {
+        margin: 0.25rem 0 0;
+        font-size: 0.85em;
+        opacity: 0.75;
+      }
+      .custom-source-input {
+        width: 100%;
+        padding: 0.4rem 0.5rem;
+        border: 1px solid hsla(0, 0%, 0%, 0.15);
+        border-radius: 0.25rem;
+        font-family: inherit;
+        font-size: 0.9em;
+        box-sizing: border-box;
+      }
+      .custom-source-note {
+        margin: 0.3rem 0 0;
+        font-size: 0.85em;
+        opacity: 0.75;
       }
     </style>
   </head>
   <body>
     <main>
+      <h1 class="window-title"></h1>
+
+      <p class="version-line">
+        <span class="version-current"></span>
+        <span class="version-latest"></span>
+      </p>
+
+      <div class="section">
+        <p class="source-label"></p>
+        <div class="source-list"></div>
+        <p class="source-note"></p>
+      </div>
+
+      <div class="section">
+        <p class="proxy-label"></p>
+        <div class="proxy-list"></div>
+      </div>
+
+      <div class="section">
+        <p class="custom-source-label"></p>
+        <input type="text" class="custom-source-input" autocomplete="off" spellcheck="false"
+               placeholder="https://mirror.example.com/gh/">
+        <p class="custom-source-note"></p>
+      </div>
+
+      <div class="progress-bar">
+        <div class="progress-fill"></div>
+      </div>
+      <p class="progress-text"></p>
+      <p class="installer-location"></p>
+
+      <div class="actions">
+        <button class="download-button"></button>
+        <button class="install-button" hidden></button>
+      </div>
+
+      <div class="inline-actions">
+        <button class="cancel-download-button" hidden></button>
+        <button class="delete-installer-button" hidden></button>
+        <button class="reveal-installer-button" hidden></button>
+        <button class="releases-page-button"></button>
+      </div>
+
+      <label class="ignore-toggle-outer">
+        <input type="checkbox" class="ignore-toggle" aria-describedby="ignore-toggle-note">
+        <span class="ignore-toggle-label"></span>
+      </label>
+      <p class="ignore-toggle-note" id="ignore-toggle-note"></p>
+
       <script>
         const {appName, locale, strings} = UpdatePreload.getStrings();
         document.documentElement.lang = locale;
 
         const info = UpdatePreload.getInfo();
-        if (info.security) {
-          document.body.classList.add('security');
+        const t = (id) => strings[id] || id;
+
+        /**
+         * @param {string} template
+         * @param {Record<string, string>} values
+         * @returns {string}
+         */
+        const format = (template, values) => {
+          let result = String(template);
+          for (const [key, value] of Object.entries(values)) {
+            result = result.split(`{${key}}`).join(value);
+          }
+          return result;
+        };
+
+        /**
+         * @param {number} bytes
+         * @returns {string}
+         */
+        const formatBytes = (bytes) => {
+          const b = Number(bytes) || 0;
+          if (!b) return '';
+          return b >= 1024 * 1024 * 1024 ?
+            (b / 1024 / 1024 / 1024).toFixed(2) + ' GB' :
+            Math.round(b / 1024 / 1024) + ' MB';
+        };
+
+        /**
+         * @param {number} bytesPerSecond
+         * @returns {string}
+         */
+        const formatSpeed = (bytesPerSecond) => {
+          const speed = Number(bytesPerSecond) || 0;
+          if (speed <= 0) return '';
+          return formatBytes(speed) + '/s';
+        };
+
+        /**
+         * @param {number} bytes
+         * @param {number} bytesPerSecond
+         * @returns {string}
+         */
+        const formatRemaining = (bytes, bytesPerSecond) => {
+          const speed = Number(bytesPerSecond) || 0;
+          const left = Number(bytes) || 0;
+          if (speed <= 0 || left <= 0) return '';
+          const seconds = Math.round(left / speed);
+          if (seconds < 5) return t('update.remaining-soon');
+          if (seconds < 60) return format(t('update.remaining-seconds'), {seconds: `${seconds}`});
+          const minutes = Math.round(seconds / 60);
+          if (minutes < 60) return format(t('update.remaining-minutes'), {minutes: `${minutes}`});
+          return format(t('update.remaining-hours'), {minutes: `${Math.round(minutes / 60)}`});
+        };
+
+        document.querySelector('.window-title').textContent = t('update.normal-title');
+        document.querySelector('.version-current').textContent =
+          format(t('update.current-version'), {version: info.currentVersion});
+        document.querySelector('.version-latest').textContent =
+          format(t('update.latest-version'), {version: info.latestVersion});
+
+        const sourceList = document.querySelector('.source-list');
+        const sources = Array.isArray(info.sources) ? info.sources : [];
+        const recommended = info.recommendedSourceName ?
+          sources.find((source) => source.name === info.recommendedSourceName) :
+          null;
+
+        if (recommended) {
+          const row = document.createElement('div');
+          row.className = 'source-row';
+
+          const details = document.createElement('div');
+          details.className = 'source-info';
+
+          const name = document.createElement('div');
+          name.className = 'source-name';
+          name.textContent = recommended.name;
+
+          const meta = document.createElement('div');
+          meta.className = 'source-meta';
+          meta.textContent = info.recommendedSourceMeta ||
+            [recommended.arch, recommended.method, recommended.size].filter(Boolean).join(' · ');
+
+          details.appendChild(name);
+          details.appendChild(meta);
+          row.appendChild(details);
+          sourceList.appendChild(row);
+
+          document.querySelector('.source-label').textContent = t('update.auto-source');
+          document.querySelector('.source-note').textContent =
+            format(t('update.auto-source-note'), {
+              platform: info.hostPlatform || '',
+              arch: info.hostArch || ''
+            });
+        } else {
+          document.querySelector('.source-label').textContent = t('update.choose-source');
+          document.querySelector('.source-note').textContent =
+            format(t('update.no-compatible-source'), {
+              platform: info.hostPlatform || '',
+              arch: info.hostArch || ''
+            });
+          const p = document.createElement('p');
+          p.className = 'no-source';
+          p.textContent = t('update.no-sources');
+          sourceList.appendChild(p);
         }
-      </script>
 
-      <h1 class="normal-title if-normal"></h1>
-      <h1 class="security-title if-security"></h1>
-      <script>
-        document.querySelector('.normal-title').textContent = strings['update.normal-title'];
-        document.querySelector('.security-title').textContent = strings['update.security-title'];
-      </script>
+        document.querySelector('.proxy-label').textContent = t('update.choose-proxy');
+        const proxyList = document.querySelector('.proxy-list');
+        const proxies = Array.isArray(info.proxies) ? info.proxies : [];
+        const selectedProxyId = info.selectedProxyId || (proxies[0] ? proxies[0].id : '');
 
-      <p class="normal-description if-normal"></p>
-      <p class="security-description if-security"></p>
-      <script>
-        const appNameVersion = `${appName} v${info.latestVersion}`;
-        document.querySelector('.normal-description').textContent = strings['update.normal-description'].replace('{appNameVersion}', appNameVersion);
-        document.querySelector('.security-description').textContent = strings['update.security-description'].replace('{appNameVersion}', appNameVersion);;
-      </script>
+        for (let i = 0; i < proxies.length; i++) {
+          const row = document.createElement('div');
+          row.className = 'proxy-row';
+          const radio = document.createElement('input');
+          radio.type = 'radio';
+          radio.name = 'download-proxy';
+          radio.value = proxies[i].id;
+          radio.checked = proxies[i].id === selectedProxyId;
+          const label = document.createElement('div');
+          label.className = 'source-name';
+          label.textContent = proxies[i].name;
+          row.appendChild(radio);
+          row.appendChild(label);
+          proxyList.appendChild(row);
+        }
 
-      <div class="update-log">
-        <p class="loading"></p>
-      </div>
-      <script>
-        document.querySelector('.loading').textContent = strings['update.loading'];
-      </script>
-
-      <button class="download-button"></button>
-      <button class="ignore-button"></button>
-      <script>
+        const progressFill = document.querySelector('.progress-fill');
+        const progressText = document.querySelector('.progress-text');
+        const ignoreToggle = document.querySelector('.ignore-toggle');
         const downloadButton = document.querySelector('.download-button');
-        const ignoreButton = document.querySelector('.ignore-button');
-        downloadButton.textContent = strings['update.download-button'];
-        ignoreButton.textContent = strings['update.ignore-button'];
-      </script>
+        const installButton = document.querySelector('.install-button');
+        const cancelDownloadButton = document.querySelector('.cancel-download-button');
+        const deleteInstallerButton = document.querySelector('.delete-installer-button');
+        const revealInstallerButton = document.querySelector('.reveal-installer-button');
+        const releasesPageButton = document.querySelector('.releases-page-button');
+        const customSourceInput = document.querySelector('.custom-source-input');
+        const installerLocation = document.querySelector('.installer-location');
 
-      <label class="permanently-ignore-outer if-normal">
-        <input type="checkbox" class="permanently-ignore-checkbox">
-        <span class="permanently-ignore-label"></span>
-      </label>
+        downloadButton.textContent = t('update.download-button');
+        installButton.textContent = t('update.install-button');
+        cancelDownloadButton.textContent = t('update.cancel-download-button');
+        deleteInstallerButton.textContent = t('update.delete-installer-button');
+        revealInstallerButton.textContent = t('update.reveal-installer-button');
+        releasesPageButton.textContent = t('update.releases-page');
+        progressText.textContent = t('update.idle');
+        document.querySelector('.ignore-toggle-label').textContent = t('update.ignore-version-toggle');
+        document.querySelector('.ignore-toggle-note').textContent = t('update.ignore-version-toggle-note');
+        document.querySelector('.custom-source-label').textContent = t('update.custom-source');
+        document.querySelector('.custom-source-note').textContent = t('update.custom-source-note');
 
-      <script>
-        document.querySelector('.permanently-ignore-label').textContent = strings['update.permanently-ignore'];
+        ignoreToggle.checked = Boolean(info.updateIgnored);
+        const syncIgnoreNote = () => {
+          document.querySelector('.ignore-toggle-note').textContent = ignoreToggle.checked ?
+            t('update.ignore-version-toggle-note') :
+            t('update.ignore-version-toggle-note-off');
+        };
+        syncIgnoreNote();
 
-        const permanentCheckbox = document.querySelector('.permanently-ignore-checkbox');
-        downloadButton.addEventListener('click', () => {
-          UpdatePreload.download();
-        });
-        ignoreButton.addEventListener('click', () => {
-          UpdatePreload.ignore(permanentCheckbox.checked);
-        });
+        customSourceInput.value = info.customSource || '';
 
-        const A_IS_NEWER = 1;
-        const B_IS_NEWER = 2;
-        const compareVersions = (a, b) => {
-          const partsA = a.split('-')[0].split('.');
-          const partsB = b.split('-')[0].split('.');
-          const expectedLength = 3;
-          for (var i = 0; i < expectedLength; i++) {
-            const itemA = +partsA[i];
-            const itemB = +partsB[i];
-            if (itemA > itemB) {
-              return A_IS_NEWER;
-            } else if (itemA < itemB) {
-              return B_IS_NEWER;
-            }
+        installerLocation.textContent = info.downloadDirectory ?
+          format(t('update.installer-location'), {directory: info.downloadDirectory}) :
+          '';
+
+        /**
+         * @returns {string | null}
+         */
+        const getSelectedSourceName = () => (recommended ? recommended.name : null);
+
+        /**
+         * @returns {string}
+         */
+        const getSelectedProxyId = () => {
+          const selected = proxyList.querySelector('input[name=download-proxy]:checked');
+          return selected ? selected.value : '';
+        };
+
+        const setBusy = (busy) => {
+          for (const button of document.querySelectorAll('button')) {
+            button.disabled = busy;
           }
+          cancelDownloadButton.disabled = !busy;
+          releasesPageButton.disabled = false;
+          for (const input of document.querySelectorAll('.proxy-row input, .custom-source-input')) {
+            input.disabled = busy;
+          }
+        };
 
-          const prereleaseA = a.split('-')[1];
-          const prereleaseB = b.split('-')[1];
-          if (prereleaseA === prereleaseB) {
-            return 0;
-          } else if (prereleaseA && !prereleaseB) {
-            return B_IS_NEWER;
-          } else if (prereleaseB && !prereleaseA) {
-            return A_IS_NEWER;
-          } else if (prereleaseA > prereleaseB) {
-            return A_IS_NEWER;
+        /**
+         * @param {boolean} ready
+         */
+        const setInstallReady = (ready) => {
+          installButton.hidden = !ready;
+          downloadButton.hidden = ready;
+          deleteInstallerButton.hidden = !ready;
+          revealInstallerButton.hidden = !ready;
+        };
+
+        /**
+         * @param {boolean} downloading
+         */
+        const setDownloading = (downloading) => {
+          cancelDownloadButton.hidden = !downloading;
+          setBusy(downloading);
+        };
+
+        let downloadedFilePath = info.installerReady && recommended ?
+          UpdatePreload.getInstallerPath(recommended.name) :
+          null;
+        if (downloadedFilePath) {
+          setInstallReady(true);
+          progressText.textContent = t('update.already-downloaded');
+        } else if (info.downloading) {
+          setDownloading(true);
+          const restored = info.downloadProgress;
+          if (restored && restored.total) {
+            const percent = Math.min(100, Math.round((restored.received / restored.total) * 100));
+            progressFill.style.width = `${percent}%`;
+            const speed = formatSpeed(restored.speed);
+            const remaining = formatRemaining(restored.total - restored.received, restored.speed);
+            progressText.textContent = speed && remaining ?
+              format(t('update.downloading-progress-detail'), {
+                percent: `${percent}`,
+                received: formatBytes(restored.received),
+                total: formatBytes(restored.total),
+                speed,
+                remaining
+              }) :
+              format(t('update.downloading-progress'), {
+                percent: `${percent}`,
+                received: formatBytes(restored.received),
+                total: formatBytes(restored.total)
+              });
           } else {
-            return B_IS_NEWER;
+            progressText.textContent = t('update.downloading');
           }
-        };
+        }
 
-        const removeChildren = (el) => {
-          while (el.firstChild) {
-            el.removeChild(el.firstChild);
+        customSourceInput.addEventListener('change', async () => {
+          try {
+            await UpdatePreload.setCustomSource(customSourceInput.value.trim());
+          } catch (error) {
+            console.error('Failed to save the custom source:', error);
           }
-        };
+        });
 
-        const changelog = document.querySelector('.update-log');
-        fetch(`https://cysoeditor.pages.dev/changelog.json?version=${info.latestVersion}`)
-          .then((res) => {
-            if (!res.ok) {
-              throw new Error(`HTTP error ${res.status}`);
+        proxyList.addEventListener('change', async (event) => {
+          const target = event.target;
+          if (!target || target.name !== 'download-proxy') return;
+          try {
+            await UpdatePreload.setProxy(target.value);
+          } catch (error) {
+            console.error('Failed to save the download mirror:', error);
+          }
+        });
+
+        const startDownload = async () => {
+          try {
+            await UpdatePreload.setCustomSource(customSourceInput.value.trim());
+          } catch (error) {
+            console.error('Failed to save the custom source:', error);
+          }
+          const sourceName = getSelectedSourceName();
+          if (!sourceName) {
+            progressText.textContent = t('update.no-sources');
+            return;
+          }
+          setDownloading(true);
+          progressText.textContent = t('update.downloading');
+          try {
+            const result = await UpdatePreload.download(sourceName, {
+              proxyId: getSelectedProxyId(),
+              customSource: customSourceInput.value.trim()
+            });
+            if (result && result.canceled) {
+              setDownloading(false);
+              progressFill.style.width = '0%';
+              progressText.textContent = t('update.download-canceled');
+              return;
             }
-            return res.json();
-          })
-          .then((allReleases) => {
-            removeChildren(changelog);
+            if (result && result.invalid) {
+              downloadedFilePath = null;
+              setInstallReady(false);
+              setDownloading(false);
+              progressFill.style.width = '0%';
+              progressText.textContent = (result && result.error) || t('update.install-invalid');
+              return;
+            }
+            if (result && result.failed) {
+              setDownloading(false);
+              progressText.textContent = (result && result.error) || t('update.download-failed');
+              return;
+            }
+            progressFill.style.width = '100%';
+            downloadedFilePath = result.filePath;
+            setInstallReady(true);
+            setDownloading(false);
+            progressText.textContent = result.alreadyDownloaded ?
+              t('update.already-downloaded') :
+              format(t('update.download-complete-body'), {fileName: sourceName});
+          } catch (error) {
+            setDownloading(false);
+            progressText.textContent = format(t('update.download-failed-body'), {
+              error: `${error}`
+            });
+          }
+        };
 
-            const filteredReleases = allReleases.filter((release) => (
-              // Only show notes that are newer than the current version
-              compareVersions(info.currentVersion, release.version) === B_IS_NEWER &&
-              // Only show notes that are older than the version we're upgrading to
-              compareVersions(info.latestVersion, release.version) !== B_IS_NEWER
-            ));
+        cancelDownloadButton.addEventListener('click', async () => {
+          const sourceName = getSelectedSourceName();
+          if (!sourceName) return;
+          cancelDownloadButton.disabled = true;
+          try {
+            const result = await UpdatePreload.cancelDownload(sourceName);
+            if (!result || !result.cancelled) {
+              cancelDownloadButton.disabled = false;
+              return;
+            }
+            setDownloading(false);
+            progressFill.style.width = '0%';
+            progressText.textContent = t('update.download-canceled');
+          } catch (error) {
+            console.error('Failed to cancel the download:', error);
+            cancelDownloadButton.disabled = false;
+          }
+        });
 
-            if (filteredReleases.length) {
-              changelog.lang = 'en';
+        deleteInstallerButton.addEventListener('click', async () => {
+          const sourceName = getSelectedSourceName();
+          if (!sourceName) return;
+          const result = await UpdatePreload.deleteInstaller(sourceName);
+          if (!result || !result.deleted) {
+            progressText.textContent = t('update.delete-failed');
+            return;
+          }
+          downloadedFilePath = null;
+          progressFill.style.width = '0%';
+          setInstallReady(false);
+          progressText.textContent = t('update.delete-complete');
+        });
 
-              for (const {version, date, notes} of filteredReleases) {
-                const titleElement = document.createElement('h2');
-                titleElement.textContent = `v${version} (${date})`;
-                changelog.appendChild(titleElement);
+        revealInstallerButton.addEventListener('click', async () => {
+          if (!downloadedFilePath) {
+            progressText.textContent = t('update.install-need-download');
+            return;
+          }
+          const result = await UpdatePreload.revealInstaller(downloadedFilePath);
+          if (result && !result.revealed) {
+            progressText.textContent = t('update.delete-failed');
+          }
+        });
 
-                const ul = document.createElement('ul');
-                for (const note of notes) {
-                  const li = document.createElement('li');
-                  li.textContent = note;
-                  ul.appendChild(li);
-                }
-                changelog.appendChild(ul);
-              }
+        downloadButton.addEventListener('click', startDownload);
+        installButton.addEventListener('click', async () => {
+          if (!downloadedFilePath) {
+            progressText.textContent = t('update.install-need-download');
+            return;
+          }
+          installButton.disabled = true;
+          try {
+            const result = await UpdatePreload.install(downloadedFilePath);
+            if (result && result.started) {
+              progressText.textContent = t('update.install-done');
             } else {
-              const p = document.createElement('p');
-              p.className = 'empty';
-              p.textContent = strings['update.not-available'];
-              changelog.appendChild(p);
+              installButton.disabled = false;
+              progressText.textContent = (result && result.error) || t('update.install-missing');
             }
-          })
-          .catch((error) => {
-            console.error(error);
+          } catch (error) {
+            installButton.disabled = false;
+            progressText.textContent = format(t('update.download-failed-body'), {
+              error: `${error}`
+            });
+          }
+        });
+        ignoreToggle.addEventListener('change', async () => {
+          syncIgnoreNote();
+          try {
+            await UpdatePreload.ignore(ignoreToggle.checked);
+          } catch (error) {
+            console.error('Failed to update the ignore setting:', error);
+            ignoreToggle.checked = !ignoreToggle.checked;
+            syncIgnoreNote();
+          }
+        });
+        document.querySelector('.releases-page-button').addEventListener('click', () => {
+          UpdatePreload.openReleasesPage();
+        });
 
-            removeChildren(changelog);
-            const p = document.createElement('p');
-            p.className = 'error';
-            p.textContent = strings['update.changelog-error']
-              .replace('{error}', `${error}`);
-            changelog.appendChild(p);
+        UpdatePreload.onDownloadProgress((payload) => {
+          if (!payload || !payload.total) return;
+          if (payload.sourceName !== getSelectedSourceName()) return;
+          const percent = Math.min(100, Math.round((payload.received / payload.total) * 100));
+          progressFill.style.width = `${percent}%`;
+          const speed = formatSpeed(payload.speed);
+          const remaining = formatRemaining(payload.total - payload.received, payload.speed);
+          progressText.textContent = speed && remaining ?
+            format(t('update.downloading-progress-detail'), {
+              percent: `${percent}`,
+              received: formatBytes(payload.received),
+              total: formatBytes(payload.total),
+              speed,
+              remaining
+            }) :
+            format(t('update.downloading-progress'), {
+              percent: `${percent}`,
+              received: formatBytes(payload.received),
+              total: formatBytes(payload.total)
+            });
+        });
+
+        UpdatePreload.onDownloadRetry((payload) => {
+          if (!payload) return;
+          if (payload.sourceName !== getSelectedSourceName()) return;
+          progressText.textContent = format(t('update.download-retry'), {
+            mirror: payload.mirror,
+            next: payload.next,
+            attempt: `${payload.attempt}`,
+            total: `${payload.total}`
           });
+        });
+
+        UpdatePreload.onDownloadComplete((payload) => {
+          if (!payload) return;
+          if (payload.sourceName !== getSelectedSourceName()) return;
+          progressFill.style.width = '100%';
+          downloadedFilePath = payload.filePath;
+          setInstallReady(true);
+          setDownloading(false);
+          progressText.textContent = format(t('update.download-complete-body'), {
+            fileName: payload.sourceName
+          });
+        });
+
+        UpdatePreload.onDownloadCanceled((payload) => {
+          if (!payload) return;
+          if (payload.sourceName !== getSelectedSourceName()) return;
+          if (cancelDownloadButton.hidden) return;
+          setDownloading(false);
+          progressFill.style.width = '0%';
+          progressText.textContent = t('update.download-canceled');
+        });
       </script>
     </main>
   </body>

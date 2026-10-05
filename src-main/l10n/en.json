@@ -263,6 +263,30 @@
     "string": "Exit F11 fullscreen mode (not the fullscreen button in the editor) when pressing escape",
     "developer_comment": "Refering to when an entire window is in fullscreen by pressing F11 or the maximize button on macOS, not the fullscreen mode you get by pressing the fullscreen button in the editor."
   },
+  "desktop-settings.render-gpu-mode": {
+    "string": "Collision detection mode",
+    "developer_comment": "Option in desktop settings to control how the renderer detects sprite collisions. 'Automatic' picks the fastest method per query."
+  },
+  "desktop-settings.render-gpu-mode-automatic": {
+    "string": "Automatic (recommended)",
+    "developer_comment": "Renderer automatically picks GPU or CPU for collision detection."
+  },
+  "desktop-settings.render-gpu-mode-force-gpu": {
+    "string": "Prefer GPU (faster on large projects)",
+    "developer_comment": "Force the GPU path for collision detection."
+  },
+  "desktop-settings.render-gpu-mode-force-cpu": {
+    "string": "Prefer CPU (more stable on old graphics cards)",
+    "developer_comment": "Force the CPU path for collision detection."
+  },
+  "desktop-settings.render-resolution-cap": {
+    "string": "Maximum rendering resolution",
+    "developer_comment": "Option in desktop settings to cap the resolution the stage is rendered at, to improve performance on low-end devices. 'Off' uses the display's full resolution."
+  },
+  "desktop-settings.render-resolution-cap-off": {
+    "string": "Off (full resolution)",
+    "developer_comment": "Do not cap the stage rendering resolution."
+  },
   "desktop-settings.rich-presence": {
     "string": "Enable Rich Presence",
     "developer_comment": "Option to enable Discord Rich Presence support, which shows the name of the project someone is editing on their Discord profile. For compliance with Scratch policies don't use the word \"Discord\" in the translation."
@@ -379,9 +403,17 @@
     "string": "Remind me later",
     "developer_comment": "Appears in update available window. Button to ignore this update temporarily."
   },
-  "update.permanently-ignore": {
-    "string": "Ignore this update",
-    "developer_comment": "Appears in update available window. Checkbox to ignore this update permanently."
+  "update.ignore-version-toggle": {
+    "string": "Ignore this version",
+    "developer_comment": "Appears in update available window. Label of the switch that ignores updates of the current version."
+  },
+  "update.ignore-version-toggle-note": {
+    "string": "You won't be reminded about this version again. Newer versions will still notify you.",
+    "developer_comment": "Appears in update available window. Explanation shown when the ignore switch is on."
+  },
+  "update.ignore-version-toggle-note-off": {
+    "string": "You will be reminded about this version when the app starts.",
+    "developer_comment": "Appears in update available window. Explanation shown when the ignore switch is off."
   },
   "update.not-available": {
     "string": "Changelog not available yet.",
@@ -390,6 +422,214 @@
   "update.changelog-error": {
     "string": "Error loading changelog: {error}",
     "developer_comment": "Appears in update available window when changelog could not be loaded, for example because the website is down."
+  },
+  "update.choose-source": {
+    "string": "Choose a download source",
+    "developer_comment": "Label above the list of download sources in the update available window"
+  },
+  "update.no-sources": {
+    "string": "No download source is available for this release.",
+    "developer_comment": "Appears in update available window when the release has no matching installer assets"
+  },
+  "update.no-changelog": {
+    "string": "No changelog was provided for this release.",
+    "developer_comment": "Appears in update available window when the GitHub release body is empty"
+  },
+  "update.background-download": {
+    "string": "Download in Background",
+    "developer_comment": "Appears in update available window. Button to download the update in the background and close the window."
+  },
+  "update.releases-page": {
+    "string": "Open GitHub Releases",
+    "developer_comment": "Appears in update available window and desktop settings. Button to open the GitHub releases page in the browser."
+  },
+  "update.idle": {
+    "string": "",
+    "developer_comment": "Idle status text under the progress bar in the update available window"
+  },
+  "update.downloading": {
+    "string": "Downloading...",
+    "developer_comment": "Appears in update available window while the installer is being downloaded"
+  },
+  "update.downloading-progress": {
+    "string": "Downloading... {percent}% ({received} / {total})",
+    "developer_comment": "Progress of the update download. {percent}, {received} and {total} will be replaced with numbers."
+  },
+  "update.downloading-progress-detail": {
+    "string": "Downloading... {percent}% ({received} / {total} · {speed}) · {remaining} left",
+    "developer_comment": "Progress of the update download once the transfer speed is known. {percent}, {received}, {total} and {speed} will be replaced with numbers, {remaining} with a duration such as 'about 2 minutes'."
+  },
+  "update.remaining-soon": {
+    "string": "a few seconds",
+    "developer_comment": "Estimated download time left, shown when it is under 5 seconds."
+  },
+  "update.remaining-seconds": {
+    "string": "about {seconds} seconds",
+    "developer_comment": "Estimated download time left. {seconds} will be replaced with a number under 60."
+  },
+  "update.remaining-minutes": {
+    "string": "about {minutes} minutes",
+    "developer_comment": "Estimated download time left. {minutes} will be replaced with a number under 60."
+  },
+  "update.remaining-hours": {
+    "string": "about {minutes} hours",
+    "developer_comment": "Estimated download time left when it is over an hour. {minutes} will be replaced with a number of hours."
+  },
+  "update.download-retry": {
+    "string": "{mirror} did not respond. Switching to {next} ({attempt} of {total})...",
+    "developer_comment": "Shown while the update download automatically moves from a failed download mirror to the next one. {mirror} and {next} will be replaced with mirror names, {attempt} and {total} with numbers."
+  },
+  "update.download-failed": {
+    "string": "Download failed. Every mirror failed too. Check your network connection, then try again or use a custom download source.",
+    "developer_comment": "Appears in the update available window when the download failed on the selected mirror and on every fallback mirror."
+  },
+  "update.download-complete-body": {
+    "string": "Download complete. The installer is ready: {fileName}",
+    "developer_comment": "Appears in desktop settings and the update available window after the installer finished downloading. {fileName} will be replaced with the file name."
+  },
+  "update.download-complete-title": {
+    "string": "Update downloaded",
+    "developer_comment": "Title of the system notification shown after the installer finished downloading"
+  },
+  "update.download-failed-body": {
+    "string": "Download failed: {error}",
+    "developer_comment": "Appears in desktop settings and the update available window when the download failed. {error} will be replaced with the error message."
+  },
+  "update.download-failed-title": {
+    "string": "Update download failed",
+    "developer_comment": "Title of the system notification shown when the download failed"
+  },
+  "update.choose-proxy": {
+    "string": "Choose a download mirror",
+    "developer_comment": "Label above the list of download mirrors in the update available window"
+  },
+  "update.custom-source": {
+    "string": "Custom download source",
+    "developer_comment": "Appears in the update available window. Label above the text box for a custom download source."
+  },
+  "update.custom-source-note": {
+    "string": "Optional. Enter a mirror address such as https://mirror.example.com/gh/ to download from somewhere other than GitHub. Leave empty to use the mirror selected above.",
+    "developer_comment": "Appears in the update available window. Explanation below the custom download source text box."
+  },
+  "update.cancel-download-button": {
+    "string": "Cancel download",
+    "developer_comment": "Appears in the update available window while an update is downloading. Button to cancel the download and delete the partial file."
+  },
+  "update.download-canceled": {
+    "string": "Download cancelled.",
+    "developer_comment": "Appears in the update available window after the user cancels a download."
+  },
+  "update.delete-installer-button": {
+    "string": "Delete downloaded file",
+    "developer_comment": "Appears in the update available window once the installer has been downloaded. Button to delete the downloaded installer file."
+  },
+  "update.delete-complete": {
+    "string": "Deleted the downloaded file.",
+    "developer_comment": "Appears in the update available window after the user deletes the downloaded installer."
+  },
+  "update.delete-failed": {
+    "string": "Could not delete the file. It might be in use by another program.",
+    "developer_comment": "Appears in the update available window when deleting the downloaded installer fails."
+  },
+  "update.installer-location": {
+    "string": "The installer is saved to {directory}.",
+    "developer_comment": "Appears in the update available window. Tells the user where the installer file is saved. {directory} will be replaced with the path of the directory."
+  },
+  "update.reveal-installer-button": {
+    "string": "Show installer file",
+    "developer_comment": "Appears in the update available window once the installer has been downloaded. Button to open the file manager and select the downloaded installer."
+  },
+  "update.install-button": {
+    "string": "Update Now",
+    "developer_comment": "Appears in update available window. Button to run the downloaded installer and quit the app."
+  },
+  "update.menu-bar-available": {
+    "string": "New version ({version})",
+    "developer_comment": "Appears in the editor's menu bar when a new version is available. {version} will be replaced with the version number, for example '1.2.3'."
+  },
+  "update.current-version": {
+    "string": "Current version: {version}",
+    "developer_comment": "Shows the version the user is currently running in the update available window. {version} will be replaced with something like '1.2.3'."
+  },
+  "update.latest-version": {
+    "string": "New version: {version}",
+    "developer_comment": "Shows the version that is available to download in the update available window. {version} will be replaced with something like '1.2.3'."
+  },
+  "update.install-need-download": {
+    "string": "Download the update before installing it.",
+    "developer_comment": "Appears in update available window when the user clicks Update Now but nothing has been downloaded yet"
+  },
+  "update.auto-source": {
+    "string": "Update package selected for you",
+    "developer_comment": "Label above the automatically selected update package in the update available window. The package matching the user's operating system and CPU architecture is picked automatically."
+  },
+  "update.auto-source-note": {
+    "string": "Matching your system: {platform} · {arch}",
+    "developer_comment": "Appears under the automatically selected update package, explaining why it was picked. {platform} and {arch} will be replaced with the detected operating system and CPU architecture."
+  },
+  "update.no-compatible-source": {
+    "string": "No update package matches this system ({platform} · {arch}). Open GitHub Releases to download one manually.",
+    "developer_comment": "Appears in update available window when no asset of the release matches the user's operating system and CPU architecture. {platform} and {arch} will be replaced with the detected operating system and CPU architecture."
+  },
+  "update.install-ready-title": {
+    "string": "Update downloaded",
+    "developer_comment": "Title of the in-app dialog asking whether to install the update right after the installer finished downloading."
+  },
+  "update.install-ready-message": {
+    "string": "{appNameVersion} is ready to install. The app will close while the installer runs.",
+    "developer_comment": "Body of the in-app dialog asking whether to install the update. {appNameVersion} will be replaced with something like 'CYSOEditor v1.2.3'."
+  },
+  "update.install-later-button": {
+    "string": "Install Later",
+    "developer_comment": "Button in the in-app dialog that dismisses the install prompt without installing, so the user can install from the update window later."
+  },
+  "update.install-missing": {
+    "string": "The installer is missing. Download the update again.",
+    "developer_comment": "Appears in the update available window when the user clicks Update Now but the downloaded installer no longer exists on disk."
+  },
+  "update.install-invalid": {
+    "string": "The installer file is incomplete or corrupted. Download the update again.",
+    "developer_comment": "Appears in the update available window when the user clicks Update Now but the installer on disk is incomplete, has the wrong size, or does not look like a valid installer."
+  },
+  "update.already-downloaded": {
+    "string": "The installer is already downloaded. Install it when you are ready.",
+    "developer_comment": "Appears in the update available window when the user clicks Download Update but the installer is already on disk, so nothing was downloaded again."
+  },
+  "update.install-done": {
+    "string": "The installer has been started. The app will close now.",
+    "developer_comment": "Appears in the update available window right after the user starts the installer from that window."
+  },
+  "update.cleanup-failed": {
+    "string": "Could not remove old installers: {error}",
+    "developer_comment": "Appears in the update available window when old installer files could not be deleted from disk."
+  },
+  "desktop-settings.releases-page": {
+    "string": "Open GitHub Releases",
+    "developer_comment": "Button in desktop settings to open the GitHub releases page"
+  },
+  "desktop-settings.update-available-download": {
+    "string": "View Update",
+    "developer_comment": "Button in desktop settings that opens the update available window after a check found a new version"
+  },
+  "desktop-settings.update-check-no-update": {
+    "string": "You are running the latest version ({version}).",
+    "developer_comment": "Result of checking for updates in desktop settings when the app is already up to date"
+  },
+  "desktop-settings.update-check-available": {
+    "string": "Version {version} is available (you are running {currentVersion}).",
+    "developer_comment": "Result of checking for updates in desktop settings when a newer version exists. {version} and {currentVersion} will be replaced with version numbers."
+  },
+  "desktop-settings.update-check-error": {
+    "string": "Could not check for updates: {error}",
+    "developer_comment": "Appears in desktop settings when checking for updates failed. {error} will be replaced with the error message."
+  },
+  "desktop-settings.checking-updates": {
+    "string": "Checking for updates...",
+    "developer_comment": "Status shown in desktop settings while checking for updates"
+  },
+  "desktop-settings.check-updates": {
+    "string": "Check for Updates",
+    "developer_comment": "Button in desktop settings to check for updates manually"
   },
   "files.svg": {
     "string": "SVG Image",

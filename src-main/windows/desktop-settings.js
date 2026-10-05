@@ -29,7 +29,9 @@ class DesktopSettingsWindow extends AbstractWindow {
           spellchecker: settings.spellchecker,
           exitFullscreenOnEscape: settings.exitFullscreenOnEscape,
           richPresenceAvailable: RichPresence.isAvailable(),
-          richPresence: settings.richPresence
+          richPresence: settings.richPresence,
+          renderGpuMode: settings.renderGpuMode,
+          renderResolutionCap: settings.renderResolutionCap
         }
       };
     });
@@ -37,6 +39,42 @@ class DesktopSettingsWindow extends AbstractWindow {
     this.ipc.handle('set-update-checker', async (event, updateChecker) => {
       settings.updateChecker = updateChecker;
       await settings.save();
+    });
+
+    this.ipc.handle('check-for-updates', async () => {
+      const {fetchUpdateInfo} = require('../update-checker');
+      // force = true：用户手动点检查更新时，不受 settings.updateChecker === 'never'
+      // 与「已忽略该版本」的限制，也不受 isUpdateCheckerAllowed() 影响。
+      const info = await fetchUpdateInfo({force: true});
+      if (!info) {
+        throw new Error('Update information is unavailable');
+      }
+      return {
+        success: true,
+        currentVersion: info.currentVersion,
+        latestVersion: info.latestVersion,
+        updateAvailable: info.updateAvailable,
+        prerelease: info.prerelease,
+        publishedAt: info.publishedAt,
+        releaseUrl: info.releaseUrl,
+        releasesPage: info.releasesPage,
+        changelog: info.changelog,
+        sourceCount: info.sources.length
+      };
+    });
+
+    this.ipc.handle('open-update-window', async () => {
+      // 复用 update-checker 的入口：它会先尝试拉最新数据，失败时回退到缓存，
+      // 保证 API 限流或离线时「查看更新」按钮仍然可用。
+      const {openUpdateWindow} = require('../update-checker');
+      return openUpdateWindow();
+    });
+
+    this.ipc.handle('open-releases-page', async () => {
+      const {RELEASES_PAGE} = require('../github-releases');
+      // Imported late due to circular dependency
+      const openExternal = require('../open-external');
+      openExternal(RELEASES_PAGE);
     });
 
     this.ipc.handle('enumerate-media-devices', async () => {
@@ -101,13 +139,29 @@ class DesktopSettingsWindow extends AbstractWindow {
       shell.showItemInFolder(app.getPath('userData'));
     });
 
+    this.ipc.handle('set-render-gpu-mode', async (event, renderGpuMode) => {
+      if (['automatic', 'force-gpu', 'force-cpu'].includes(renderGpuMode)) {
+        settings.renderGpuMode = renderGpuMode;
+        AbstractWindow.settingsChanged();
+        await settings.save();
+      }
+    });
+
+    this.ipc.handle('set-render-resolution-cap', async (event, renderResolutionCap) => {
+      if (typeof renderResolutionCap === 'number' && renderResolutionCap >= 0) {
+        settings.renderResolutionCap = renderResolutionCap;
+        AbstractWindow.settingsChanged();
+        await settings.save();
+      }
+    });
+
     this.loadURL('tw-desktop-settings://./desktop-settings.html');
   }
 
   getDimensions () {
     return {
       width: 550,
-      height: 500
+      height: 640
     };
   }
 

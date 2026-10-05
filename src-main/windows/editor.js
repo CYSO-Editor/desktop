@@ -5,6 +5,7 @@ const zlib = require('zlib');
 const nodeCrypto = require('crypto');
 const {app, dialog} = require('electron');
 const ProjectRunningWindow = require('./project-running-window');
+const AbstractWindow = require('./abstract');
 const AddonsWindow = require('./addons');
 const DesktopSettingsWindow = require('./desktop-settings');
 const PrivacyWindow = require('./privacy');
@@ -19,6 +20,7 @@ const privilegedFetch = require('../fetch');
 const RichPresence = require('../rich-presence.js');
 const FileAccessWindow = require('./file-access-window.js');
 const ExtensionDocumentationWindow = require('./extension-documentation.js');
+const {getExtensionScript} = require('../extension-cache');
 const CYSOCore = require('cyso-core');
 const { Action } = CYSOCore;
 
@@ -26,6 +28,49 @@ const TYPE_FILE = 'file';
 const TYPE_URL = 'url';
 const TYPE_SCRATCH = 'scratch';
 const TYPE_SAMPLE = 'sample';
+
+/**
+ * Re-reading the same project is common: reopening a file, restoring after an error, or switching
+ * back to a tab. The bytes are cached until the file's size or mtime changes so those repeats skip
+ * both the disk read and a fresh inflate in the VM.
+ */
+const fileContentCache = new Map();
+const FILE_CACHE_MAX_ENTRIES = 4;
+const FILE_CACHE_MAX_BYTES = 256 * 1024 * 1024;
+
+const evictFileCacheIfNeeded = () => {
+  while (
+    fileContentCache.size > FILE_CACHE_MAX_ENTRIES ||
+    fileContentCacheTotalBytes > FILE_CACHE_MAX_BYTES
+  ) {
+    const oldest = fileContentCache.keys().next();
+    if (oldest.done) break;
+    fileContentCacheTotalBytes -= fileContentCache.get(oldest.value).data.length;
+    fileContentCache.delete(oldest.value);
+  }
+};
+let fileContentCacheTotalBytes = 0;
+
+const readFileCached = async (filePath) => {
+  const stat = await fsPromises.stat(filePath);
+  const cached = fileContentCache.get(filePath);
+  if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) {
+    return cached.data;
+  }
+  if (cached) {
+    fileContentCacheTotalBytes -= cached.data.length;
+    fileContentCache.delete(filePath);
+  }
+  const data = await fsPromises.readFile(filePath);
+  fileContentCache.set(filePath, {
+    mtimeMs: stat.mtimeMs,
+    size: stat.size,
+    data
+  });
+  fileContentCacheTotalBytes += data.length;
+  evictFileCacheIfNeeded();
+  return data;
+};
 
 class OpenedFile {
   constructor (type, path) {
@@ -43,7 +88,7 @@ class OpenedFile {
     if (this.type === TYPE_FILE) {
       return {
         name: path.basename(this.path),
-        data: await fsPromises.readFile(this.path)
+        data: await readFileCached(this.path)
       };
     }
 
@@ -242,10 +287,15 @@ class EditorWindow extends ProjectRunningWindow {
      */
     this.openedFiles = new Map();
     this.activeFileId = null;
+    this.isInitiallyFullscreen = isInitiallyFullscreen;
 
     if (initialFile !== null) {
       this.activeFileId = generateFileId();
       this.openedFiles.set(this.activeFileId, initialFile);
+      // 提前读盘，使磁盘 IO 与 Chromium 启动主包、挂载 React 重叠而非串行。
+      this.initialFileRead = initialFile.read();
+      // 挂空处理器防止提前失败时触发 unhandledRejection；原 promise 仍可正常 await。
+      this.initialFileRead.catch(() => {});
     }
 
     this.openedProjectAt = Date.now();
@@ -350,6 +400,16 @@ class EditorWindow extends ProjectRunningWindow {
 
     this.ipc.handle('get-file', async (event, id) => {
       const file = getFileById(id);
+      // 接手构造时发起的预读，不重复读盘。
+      if (id === this.activeFileId && this.initialFileRead) {
+        const {name, data} = await this.initialFileRead;
+        this.initialFileRead = null;
+        return {
+          name,
+          type: file.type,
+          data
+        };
+      }
       const {name, data} = await file.read();
       return {
         name,
@@ -358,7 +418,7 @@ class EditorWindow extends ProjectRunningWindow {
       };
     });
 
-    this.ipc.on('set-locale', async (event, locale) => {
+    this.ipc.handle('set-locale', async (event, locale) => {
       if (settings.locale !== locale) {
         settings.locale = locale;
         updateLocale(locale);
@@ -370,10 +430,24 @@ class EditorWindow extends ProjectRunningWindow {
         // Let the save happen in the background, not important
         Promise.resolve().then(() => settings.save());
       }
-      event.returnValue = {
+      return {
         strings: getStrings()
       };
     });
+
+    this.ipc.handle('get-extension-cache', async (event, url) => {
+      try {
+        return await getExtensionScript(url);
+      } catch (error) {
+        console.error('Extension cache error:', error);
+        return null;
+      }
+    });
+
+    this.ipc.handle('get-render-settings', () => ({
+      gpuMode: settings.renderGpuMode,
+      resolutionCap: settings.renderResolutionCap
+    }));
 
     this.ipc.handle('set-changed', (event, changed) => {
       this.window.setDocumentEdited(changed);
@@ -431,7 +505,7 @@ class EditorWindow extends ProjectRunningWindow {
 
       const filePaths = result.filePaths;
       settings.lastDirectory = path.dirname(filePaths[0]);
-      await settings.save();
+      settings.save().catch(() => {});
 
       const makeResult = (filePath) => {
         const id = generateFileId();
@@ -480,7 +554,7 @@ class EditorWindow extends ProjectRunningWindow {
       }
 
       settings.lastDirectory = path.dirname(filePath);
-      await settings.save();
+      settings.save().catch(() => {});
 
       const id = generateFileId();
       this.openedFiles.set(id, new OpenedFile(TYPE_FILE, filePath));
@@ -1372,8 +1446,31 @@ class EditorWindow extends ProjectRunningWindow {
       }
     });
 
+    // Imported late due to circular dependency
+    const {checkForUpdatesSilently, getAvailableVersion} = require('../update-checker');
+
+    this.ipc.handle('get-update-available-version', async () => {
+      return getAvailableVersion();
+    });
+
+    this.ipc.handle('open-update-window', async () => {
+      const {openUpdateWindow} = require('../update-checker');
+      return openUpdateWindow();
+    });
+
+    // 等首帧绘制完再显示窗口，否则用户先看到的是 backgroundColor 空白而非 splash。
+    // did-finish-load 兜底：ready-to-show 在少数环境下不触发。
+    const showOnce = () => {
+      this.window.webContents.off('ready-to-show', showOnce);
+      this.window.webContents.off('did-finish-load', showOnce);
+      this.show();
+      // 有新版本时只在菜单栏显示提示，更新窗口由用户点击后再打开。
+      checkForUpdatesSilently();
+    };
+    this.window.webContents.once('ready-to-show', showOnce);
+    this.window.webContents.once('did-finish-load', showOnce);
+
     this.loadURL('cysoeditor://./gui/gui.html');
-    this.show();
   }
 
   getWindowOptions () {
@@ -1381,6 +1478,10 @@ class EditorWindow extends ProjectRunningWindow {
     options.webPreferences = {
       ...options.webPreferences,
       sandbox: false,
+      // 经 additionalArguments 注入，取代 sendSync：后者会在首帧前同步阻塞渲染进程。
+      additionalArguments: [
+        `--cyso-initial-fullscreen=${this.isInitiallyFullscreen ? 'true' : 'false'}`
+      ]
     };
     return options;
   }
@@ -1402,6 +1503,14 @@ class EditorWindow extends ProjectRunningWindow {
 
   applySettings () {
     this.window.webContents.setBackgroundThrottling(settings.backgroundThrottling);
+    try {
+      this.window.webContents.send('cyso:render-settings', {
+        gpuMode: settings.renderGpuMode,
+        resolutionCap: settings.renderResolutionCap
+      });
+    } catch (error) {
+      // Window may not have loaded yet
+    }
   }
 
   async _getDiskUsage () {
