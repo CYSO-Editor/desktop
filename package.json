@@ -10,8 +10,8 @@
   "type": "commonjs",
   "scripts": {
     "fetch": "node scripts/download-library-files.mjs && node scripts/download-packager.mjs && node scripts/prepare-extensions.mjs",
-    "webpack:compile": "cross-env NODE_ENV=production webpack --config webpack.config.cjs && node scripts/clean-precompressed-renderer.mjs",
-    "webpack:watch": "node scripts/clean-precompressed-renderer.mjs && webpack --config webpack.config.cjs --watch",
+    "webpack:compile": "cross-env NODE_ENV=production webpack --config webpack.config.cjs",
+    "webpack:watch": "webpack --config webpack.config.cjs --watch",
     "webpack:prod": "cross-env NODE_ENV=production webpack --config webpack.config.cjs && node scripts/precompress-renderer.mjs",
     "compress:renderer": "node scripts/precompress-renderer.mjs",
     "electron:start": "electron src-main/entrypoint.js",
