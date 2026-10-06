@@ -237,6 +237,22 @@ const cachedReadFile = async (fs, path) => {
 };
 
 /**
+ * 预压缩副本由独立脚本生成，可能落后于源文件（只重新编译而不压缩时就是这样）。
+ * 落后于源文件时必须读源文件，否则改了代码却加载到旧内容。
+ * @param {typeof fs} fs
+ * @param {string} path 不含 .br 后缀的路径
+ * @returns {Promise<boolean>}
+ */
+const hasFreshBrotli = async (fs, path) => {
+  const compressed = await fs.promises.stat(`${path}.br`).catch(() => null);
+  if (!compressed) {
+    return false;
+  }
+  const original = await fs.promises.stat(path).catch(() => null);
+  return !original || compressed.mtimeMs >= original.mtimeMs;
+};
+
+/**
  * @param {unknown} xml
  * @returns {string}
  */
@@ -348,10 +364,11 @@ const createModernProtocolHandler = (metadata) => {
         'content-type': mimeType
       };
 
-      if (metadata.brotli) {
+      const fs = require('fs');
+
+      if (metadata.brotli && await hasFreshBrotli(fs, resolved)) {
         // Reading it all into memory is not ideal, but we've had so many problems with streaming
         // files from the asar that I can settle with this.
-        const fs = require('fs');
         try {
           const brotliData = await cachedReadFile(fs, `${resolved}.br`);
           if (brotliData === null) {
@@ -379,8 +396,7 @@ const createModernProtocolHandler = (metadata) => {
         }
       }
 
-      // For non-brotli protocols, use fs to read local files
-      const fs = require('fs');
+      // For non-brotli protocols, and for stale .br files, use fs to read local files
       const fileData = await cachedReadFile(fs, resolved);
       if (fileData === null) {
         return createErrorResponse(new Error(`File not found locally: ${resolved}`));

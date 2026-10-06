@@ -83,18 +83,12 @@ jobs:
       run: |
         cd "${{ github.workspace }}/../scratch-paint"
         npm run build
-    - name: Install scratch-gui runtime peers
-      # scratch-gui 直接 import 了 scratch-render / scratch-blocks / scratch-paint，
-      # 但它们并非 scratch-gui 直接声明的依赖（由 scratch-vm 等 file: 依赖间接带入），
-      # 在 CI 的 hoist 布局下不会被放到 scratch-gui 能解析到的 node_modules 中。
-      # 这里把它们直接装进 scratch-gui/node_modules（版本对齐 scratch-vm 的声明），复刻本地可编译布局。
+    - name: Link scratch-paint for scratch-gui
+      # scratch-blocks / scratch-render 已在 scratch-gui 的 package.json 中声明，
+      # 随 npm install 就位；scratch-paint 额外显式链接一次作为保险。
       run: |
-        cd "${{ github.workspace }}/../scratch-gui"
-        npm install --no-save --legacy-peer-deps --no-audit --no-fund \
-          scratch-render@0.1.0-prerelease.20231220210403 \
-          scratch-blocks@0.1.0-prerelease.20230527085947
-        mkdir -p node_modules
-        ln -sfn "${{ github.workspace }}/../scratch-paint" node_modules/scratch-paint
+        mkdir -p "${{ github.workspace }}/../scratch-gui/node_modules"
+        ln -sfn "${{ github.workspace }}/../scratch-paint" "${{ github.workspace }}/../scratch-gui/node_modules/scratch-paint"
     - name: Compile
       run: npm run webpack:prod
     - name: Package
@@ -170,18 +164,12 @@ jobs:
       run: |
         cd "${{ github.workspace }}/../scratch-paint"
         npm run build
-    - name: Install scratch-gui runtime peers
-      # scratch-gui 直接 import 了 scratch-render / scratch-blocks / scratch-paint，
-      # 但它们并非 scratch-gui 直接声明的依赖（由 scratch-vm 等 file: 依赖间接带入），
-      # 在 CI 的 hoist 布局下不会被放到 scratch-gui 能解析到的 node_modules 中。
-      # 这里把它们直接装进 scratch-gui/node_modules（版本对齐 scratch-vm 的声明），复刻本地可编译布局。
+    - name: Link scratch-paint for scratch-gui
+      # scratch-blocks / scratch-render 已在 scratch-gui 的 package.json 中声明，
+      # 随 npm install 就位；scratch-paint 额外显式链接一次作为保险。
       run: |
-        cd "${{ github.workspace }}/../scratch-gui"
-        npm install --no-save --legacy-peer-deps --no-audit --no-fund \
-          scratch-render@0.1.0-prerelease.20231220210403 \
-          scratch-blocks@0.1.0-prerelease.20230527085947
-        mkdir -p node_modules
-        ln -sfn "${{ github.workspace }}/../scratch-paint" node_modules/scratch-paint
+        mkdir -p "${{ github.workspace }}/../scratch-gui/node_modules"
+        ln -sfn "${{ github.workspace }}/../scratch-paint" "${{ github.workspace }}/../scratch-gui/node_modules/scratch-paint"
     - name: Compile
       run: npm run webpack:prod
     - name: Package
@@ -272,19 +260,14 @@ jobs:
         Push-Location D:\scratch-paint
         npm run build
         Pop-Location
-    - name: Install scratch-gui runtime peers
+    - name: Link scratch-paint for scratch-gui
       shell: pwsh
-      # scratch-gui 直接 import 了未声明的 scratch-render / scratch-blocks / scratch-paint，
-      # 需直接装进 scratch-gui/node_modules（版本对齐 scratch-vm 的声明）以复刻本地布局。
+      # scratch-blocks / scratch-render 已在 scratch-gui 的 package.json 中声明，
+      # 随 npm install 就位；scratch-paint 额外显式链接一次作为保险。
       run: |
-        Push-Location D:\scratch-gui
-        npm install --no-save --legacy-peer-deps --no-audit --no-fund `
-          scratch-render@0.1.0-prerelease.20231220210403 `
-          scratch-blocks@0.1.0-prerelease.20230527085947
-        New-Item -ItemType Directory -Force -Path node_modules | Out-Null
-        if (Test-Path node_modules\scratch-paint) { Remove-Item node_modules\scratch-paint -Force -Recurse }
-        cmd /c "mklink /J node_modules\scratch-paint ..\scratch-paint"
-        Pop-Location
+        New-Item -ItemType Directory -Force -Path D:\scratch-gui\node_modules | Out-Null
+        if (Test-Path D:\scratch-gui\node_modules\scratch-paint) { Remove-Item D:\scratch-gui\node_modules\scratch-paint -Force -Recurse }
+        cmd /c "mklink /J D:\scratch-gui\node_modules\scratch-paint D:\scratch-paint"
     - name: Compile
       working-directory: D:\repo
       run: npm run webpack:prod

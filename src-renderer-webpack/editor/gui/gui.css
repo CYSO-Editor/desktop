@@ -1,4 +1,4 @@
-/* 编辑器不做文档横向滚动，最小宽度由 .page-wrapper 钳制到窗口宽度内。 */
+/* .page-wrapper 已把最小宽度钳制在窗口内，这里只作兜底。 */
 html,
 body {
   overflow-x: hidden;
