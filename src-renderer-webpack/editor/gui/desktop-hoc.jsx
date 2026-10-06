@@ -140,9 +140,7 @@ const DesktopHOC = function (WrappedComponent) {
       }
     }
     componentDidMount () {
-      // 菜单栏的更新提示：主进程检查到新版本时会推过来，组件里显示
-      // 「新的版本（vx.x.x）」。首屏渲染可能晚于检查完成，所以还要
-      // 主动拉一次当前状态。
+      // 主动拉一次，兼顾挂载前检查就已完成的情况。
       this.unsubscribeUpdateNotice = EditorPreload.onUpdateAvailableChanged(version => {
         this.props.onSetUpdateAvailableVersion(version);
       });
