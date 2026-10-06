@@ -307,10 +307,7 @@
           }, 720);
         }
 
-        /*
-            交接后不能立刻淡出：React 挂载完成到它画出加载界面之间有空档，此时 #app 还是空的。
-            监听提前注册，两种触发顺序都能接上。
-        */
+        // React 挂载完成到它画出加载界面之间有空档，此时 #app 还是空的，所以要等它接管。
         window.addEventListener('cyso:react-splash-ready', function onReady() {
           window.removeEventListener('cyso:react-splash-ready', onReady);
           reactReady = true;
@@ -324,7 +321,6 @@
             window.setTimeout(dismiss, 60);
             return;
           }
-          // 交接后 React 一直没接管（例如脚本被拦截）时也要放行，不能一直挡着。
           window.setTimeout(function () {
             if (!reactReady) {
               dismiss();
@@ -336,10 +332,11 @@
           if (handedOff) return;
           handedOff = true;
           stop();
+          var detail = {progress: Math.max(progress, HANDOFF_PROGRESS), status: status};
           window.cysoBootDone = true;
-          window.dispatchEvent(new CustomEvent('cyso:load-handoff', {
-            detail: {progress: Math.max(progress, HANDOFF_PROGRESS), status: status}
-          }));
+          // 事件可能早于 React 挂载被丢弃，值同时留在 window 上供挂载后读取。
+          window.cysoBootHandoff = detail;
+          window.dispatchEvent(new CustomEvent('cyso:load-handoff', {detail: detail}));
           dismissWhenReactReady();
         }
 

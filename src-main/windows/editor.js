@@ -1464,7 +1464,6 @@ class EditorWindow extends ProjectRunningWindow {
       this.window.webContents.off('ready-to-show', showOnce);
       this.window.webContents.off('did-finish-load', showOnce);
       this.show();
-      // 有新版本时只在菜单栏显示提示，更新窗口由用户点击后再打开。
       checkForUpdatesSilently();
     };
     this.window.webContents.once('ready-to-show', showOnce);
@@ -1475,6 +1474,9 @@ class EditorWindow extends ProjectRunningWindow {
 
   getWindowOptions () {
     const options = super.getWindowOptions();
+    // 编辑器布局按 1024x640 设计，窗口更窄时积木区与角色栏会被压到无法使用。
+    options.minWidth = 1024;
+    options.minHeight = 640;
     options.webPreferences = {
       ...options.webPreferences,
       sandbox: false,
