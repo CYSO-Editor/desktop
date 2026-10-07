@@ -125,6 +125,14 @@ module.exports = [
                 // Use the local scratch-blocks, which supports procedure returns.
                 'scratch-blocks$': path.resolve(__dirname, '../scratch-blocks/shim/vertical.js')
             }
+        },
+        resolveLoader: {
+            modules: [
+                path.resolve(__dirname, 'node_modules'),
+                'node_modules',
+                path.resolve(__dirname, '../scratch-gui/node_modules'),
+                path.resolve(__dirname, '../scratch-vm/node_modules')
+            ]
         }
     },
 
