@@ -114,14 +114,16 @@ const openUpdateWindow = async () => {
   const UpdateWindow = require('./windows/update');
 
   let info = null;
+  let fetchFailed = false;
   try {
     info = await fetchUpdateInfo({force: true});
     rememberUpdateInfo(info);
   } catch (error) {
+    fetchFailed = true;
     console.error('Could not refresh update info, falling back to cache:', error);
   }
 
-  if (!info || !info.updateAvailable) {
+  if ((!info || !info.updateAvailable) && fetchFailed) {
     info = cachedUpdateInfo;
   }
   if (!info || !info.updateAvailable) {
