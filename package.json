@@ -24,7 +24,7 @@
     "react-dom": "^16.0.0",
     "react-redux": "^5.0.7",
     "redux": "^3.7.2",
-    "scratch-blocks": "^1.3.0",
+    "scratch-blocks": "../scratch-blocks",
     "semver": "^7.7.3",
     "scratch-paint": "../scratch-paint",
     "cyso-core": "../CYSO-Core",
@@ -32,7 +32,7 @@
     "@turbowarp/jszip": "3.12.0",
     "@turbowarp/nanolog": "1.0.1",
     "@turbowarp/scratch-l10n": "3.1001.202405101234",
-    "@turbowarp/scratch-storage": "0.0.202505311821",
+    "@turbowarp/scratch-storage": "../scratch-storage",
     "@turbowarp/scratch-svg-renderer": "1.1.0",
     "@turbowarp/startaudiocontext": "1.0.0"
   },
