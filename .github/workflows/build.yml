@@ -5,8 +5,13 @@ name: Build
 # （草稿需手动编辑说明并点 Publish 才公开）。
 # 也可在 Actions 页面手动点 Run workflow 运行。
 #
-# desktop 依赖 5 个本地 ../ 兄弟仓库（scratch-gui / scratch-paint / CYSO-Core / extensions / scratch-vm），
-# CI 上并不存在这些目录，因此这里把它们克隆到仓库同级目录（与本地开发布局一致）。
+# desktop 依赖 10 个本地 ../ 兄弟仓库，CI 上并不存在这些目录，因此克隆到仓库同级目录（与本地开发布局一致）。
+# 全部来自自有 fork（CYSO-Editor 组织）：scratch-gui / scratch-paint / CYSO-Core / extensions / scratch-vm /
+# scratch-blocks / scratch-storage / scratch-render / scratch-audio / scratch-parser。
+# 其中后5 个原本只连官方上游，现已 fork 到 CYSO-Editor 下（避免 CI 依赖外部组织的可用性）：
+#   scratch-blocks 与 scratch-storage 是 package.json 里声明的 ../ 本地依赖（缺了 npm install 直接失败）；
+#   scratch-render / scratch-audio / scratch-parser 被 webpack.config.cjs 以源码模式或别名引用
+#   （scratch-parser 还提供 node_modules/ajv 供 ajv$ 别名使用）。
 # 注意：直接克隆各兄弟仓库的默认分支最新提交，不锁定具体 SHA——构建结果会随兄弟仓库更新而变化，
 # 不复现固定版本。若需要可复现构建，请改回锁定具体提交（见历史提交）。
 
@@ -39,6 +44,11 @@ jobs:
         clone_sibling CYSO-Core
         clone_sibling extensions
         clone_sibling scratch-vm
+        clone_sibling scratch-blocks
+        clone_sibling scratch-storage
+        clone_sibling scratch-render
+        clone_sibling scratch-audio
+        clone_sibling scratch-parser
     - name: Install strip-nondeterminism
       run: sudo apt-get install strip-nondeterminism
     - name: Install Node.js
@@ -50,7 +60,8 @@ jobs:
     - name: Install sibling dependencies
       run: |
         set -e
-        for name in scratch-gui scratch-paint CYSO-Core extensions scratch-vm; do
+        for name in scratch-gui scratch-paint CYSO-Core extensions scratch-vm \
+                    scratch-blocks scratch-storage scratch-render scratch-audio scratch-parser; do
           echo "Installing deps for $name"
           (cd "${{ github.workspace }}/../$name" && npm install --ignore-scripts --legacy-peer-deps --no-audit --no-fund)
         done
@@ -75,7 +86,10 @@ jobs:
         cd "${{ github.workspace }}/../scratch-gui"
         node scripts/prepublish.mjs
     - name: Fetch
-      run: npm run fetch
+      # download-library-files 会尝试从 assets.scratch.mit.edu 拉 1304 个素材，
+      # 该域名在部分网络（含国内与部分 Runner）不可达，失败会让整个 job 中断。
+      # 它只是离线素材加速缓存，缺失时运行期会回退到官方网络，故容忍失败。
+      run: npm run fetch || echo "::warning::fetch 步骤部分失败（离线素材缓存缺失，不影响构建）"
     - name: Build scratch-paint
       # scratch-paint 的 package.json main 指向 ./dist/scratch-paint.js，
       # 而 CI 用 --ignore-scripts 安装依赖跳过了其 webpack 构建，导致 dist 缺失。
@@ -122,6 +136,11 @@ jobs:
         clone_sibling CYSO-Core
         clone_sibling extensions
         clone_sibling scratch-vm
+        clone_sibling scratch-blocks
+        clone_sibling scratch-storage
+        clone_sibling scratch-render
+        clone_sibling scratch-audio
+        clone_sibling scratch-parser
     - name: Install Node.js
       uses: actions/setup-node@v4
       with:
@@ -131,7 +150,8 @@ jobs:
     - name: Install sibling dependencies
       run: |
         set -e
-        for name in scratch-gui scratch-paint CYSO-Core extensions scratch-vm; do
+        for name in scratch-gui scratch-paint CYSO-Core extensions scratch-vm \
+                    scratch-blocks scratch-storage scratch-render scratch-audio scratch-parser; do
           echo "Installing deps for $name"
           (cd "${{ github.workspace }}/../$name" && npm install --ignore-scripts --legacy-peer-deps --no-audit --no-fund)
         done
@@ -156,7 +176,10 @@ jobs:
         cd "${{ github.workspace }}/../scratch-gui"
         node scripts/prepublish.mjs
     - name: Fetch
-      run: npm run fetch
+      # download-library-files 会尝试从 assets.scratch.mit.edu 拉 1304 个素材，
+      # 该域名在部分网络（含国内与部分 Runner）不可达，失败会让整个 job 中断。
+      # 它只是离线素材加速缓存，缺失时运行期会回退到官方网络，故容忍失败。
+      run: npm run fetch || echo "::warning::fetch 步骤部分失败（离线素材缓存缺失，不影响构建）"
     - name: Build scratch-paint
       # scratch-paint 的 package.json main 指向 ./dist/scratch-paint.js，
       # 而 CI 用 --ignore-scripts 安装依赖跳过了其 webpack 构建，导致 dist 缺失。
@@ -201,10 +224,11 @@ jobs:
     - name: Checkout sibling repositories
       shell: pwsh
       run: |
-        $sibs = @('scratch-gui','scratch-paint','CYSO-Core','extensions','scratch-vm')
+        $sibs = @('scratch-gui','scratch-paint','CYSO-Core','extensions','scratch-vm',
+                  'scratch-blocks','scratch-storage','scratch-render','scratch-audio','scratch-parser')
         foreach ($name in $sibs) {
           $dest = "D:\$name"
-          Write-Host "Cloning $name (default branch) -> $dest"
+          Write-Host "Cloning CYSO-Editor/$name (default branch) -> $dest"
           git clone --quiet "https://github.com/CYSO-Editor/$name.git" $dest
         }
     - name: Configure npm to use D drive
@@ -221,7 +245,8 @@ jobs:
     - name: Install sibling dependencies
       shell: pwsh
       run: |
-        foreach ($name in @('scratch-gui','scratch-paint','CYSO-Core','extensions','scratch-vm')) {
+        foreach ($name in @('scratch-gui','scratch-paint','CYSO-Core','extensions','scratch-vm',
+                            'scratch-blocks','scratch-storage','scratch-render','scratch-audio','scratch-parser')) {
           $dir = "D:\$name"
           Write-Host "Installing deps for $name in $dir"
           Push-Location $dir
@@ -251,8 +276,17 @@ jobs:
         node scripts/prepublish.mjs
         Pop-Location
     - name: Fetch
+      # download-library-files 会尝试从 assets.scratch.mit.edu 拉 1304 个素材，
+      # 该域名在部分网络（含国内与部分 Runner）不可达，失败会让整个 job 中断。
+      # 它只是离线素材加速缓存，缺失时运行期会回退到官方网络，故容忍失败。
       working-directory: D:\repo
-      run: npm run fetch
+      shell: pwsh
+      run: |
+        npm run fetch
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "::warning::fetch 步骤部分失败（离线素材缓存缺失，不影响构建）"
+          exit 0
+        }
     - name: Build scratch-paint
       shell: pwsh
       # scratch-paint 的 main 指向 ./dist/scratch-paint.js，需先构建（CI 跳过了其构建脚本）。
