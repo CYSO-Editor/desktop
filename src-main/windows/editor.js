@@ -708,8 +708,8 @@ class EditorWindow extends ProjectRunningWindow {
 
     this.ipc.handle('open-external-url', async (event, url) => {
       try {
-        const {shell} = require('electron');
-        await shell.openExternal(url);
+        const openExternal = require('../open-external');
+        await openExternal(url);
         return true;
       } catch (error) {
         console.error('Failed to open external URL:', error);
@@ -878,6 +878,11 @@ class EditorWindow extends ProjectRunningWindow {
         return { success: false, error: 'Permission denied: file-read' };
       }
 
+      const pathCheck = await core.request(Action.VALIDATE_PATH, { path: core.expandPath(filePath) });
+      if (!pathCheck.safe) {
+        return { success: false, error: '安全限制：不允许访问系统关键路径或风险路径' };
+      }
+
       try {
         const fs = fsPromises;
         const safePath = resolveUserPath(filePath);
@@ -901,6 +906,11 @@ class EditorWindow extends ProjectRunningWindow {
       const checkResult = await gatePermission('file-read', extensionId);
       if (!checkResult || checkResult.action !== 'allow') {
         return { success: false, error: 'Permission denied', exists: false };
+      }
+
+      const pathCheck = await core.request(Action.VALIDATE_PATH, { path: core.expandPath(filePath) });
+      if (!pathCheck.safe) {
+        return { success: false, error: '安全限制：不允许访问系统关键路径或风险路径', exists: false };
       }
 
       try {
@@ -1479,7 +1489,6 @@ class EditorWindow extends ProjectRunningWindow {
     options.minHeight = 640;
     options.webPreferences = {
       ...options.webPreferences,
-      sandbox: false,
       // 经 additionalArguments 注入，取代 sendSync：后者会在首帧前同步阻塞渲染进程。
       additionalArguments: [
         `--cyso-initial-fullscreen=${this.isInitiallyFullscreen ? 'true' : 'false'}`

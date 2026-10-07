@@ -145,7 +145,7 @@ const INSTALLER_SIGNATURES = [
   {extension: '.appx', offset: 0, bytes: [0x50, 0x4b, 0x03, 0x04]},
   {extension: '.deb', offset: 0, bytes: [0x21, 0x3c, 0x61, 0x72, 0x63, 0x68, 0x3e, 0x0a]},
   {extension: '.pkg', offset: 0, bytes: [0x78, 0x61, 0x72, 0x21]},
-  {extension: '.dmg', offset: 512, bytes: [0x6b, 0x6f, 0x6c, 0x79]}
+  {extension: '.dmg', fromEnd: 512, bytes: [0x6b, 0x6f, 0x6c, 0x79]}
 ];
 
 /**
@@ -161,7 +161,11 @@ const hasValidSignature = (filePath) => {
   let descriptor = null;
   try {
     descriptor = fs.openSync(filePath, 'r');
-    const read = fs.readSync(descriptor, buffer, 0, buffer.length, signature.offset);
+    const offset = signature.fromEnd ?
+      fs.fstatSync(descriptor).size - signature.fromEnd :
+      signature.offset;
+    if (offset < 0) return false;
+    const read = fs.readSync(descriptor, buffer, 0, buffer.length, offset);
     if (read < buffer.length) return false;
   } catch (error) {
     return false;
