@@ -1,3 +1,3 @@
-# CYSOEditor v1.0.4
+# CYSOEditor v1.0.5
 
-多工作区功能优化与bug修复
+全局性修复优化，解决了一些问题
