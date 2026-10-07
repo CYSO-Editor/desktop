@@ -194,7 +194,11 @@ const recommendSource = (sources) => {
   let best = null;
   let bestScore = null;
   for (const source of candidates) {
-    const score = [archRank(source.arch), methodRank(source.method)];
+    const rank = archRank(source.arch);
+    if (rank >= 2) {
+      continue;
+    }
+    const score = [rank, methodRank(source.method)];
     if (
       bestScore === null ||
       score[0] < bestScore[0] ||
@@ -270,7 +274,8 @@ const fetchLatestRelease = async () => {
     throw new Error('No releases found in repository');
   }
 
-  return published[0];
+  const stable = published.find((release) => release.prerelease !== true);
+  return stable || published[0];
 };
 
 /**
@@ -349,9 +354,6 @@ const readCustomSource = (value) => (typeof value === 'string' ? value.trim() : 
  * @returns {boolean}
  */
 const isCompleteDownloadURL = (source) => {
-  if (source.includes('/releases/download/')) {
-    return true;
-  }
   try {
     const {pathname} = new URL(source);
     return INSTALLER_FILE_EXTENSIONS.some((extension) => pathname.toLowerCase().endsWith(extension));
