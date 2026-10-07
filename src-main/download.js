@@ -102,6 +102,43 @@ const hasRangeQuery = (url) => {
 };
 
 /**
+ * @param {string} temporaryPath
+ * @returns {{url: string}|null}
+ */
+const readResumeMeta = (temporaryPath) => {
+  try {
+    return JSON.parse(fs.readFileSync(`${temporaryPath}.meta.json`, 'utf-8'));
+  } catch (error) {
+    return null;
+  }
+};
+
+/**
+ * @param {string} temporaryPath
+ * @param {string} url
+ * @returns {void}
+ */
+const writeResumeMeta = (temporaryPath, url) => {
+  try {
+    fs.writeFileSync(`${temporaryPath}.meta.json`, JSON.stringify({url}), 'utf-8');
+  } catch (error) {
+    // The download can continue without it; only resume support is lost.
+  }
+};
+
+/**
+ * @param {string} temporaryPath
+ * @returns {void}
+ */
+const removeResumeMeta = (temporaryPath) => {
+  try {
+    fs.rmSync(`${temporaryPath}.meta.json`, {force: true});
+  } catch (error) {
+    // Nothing to do.
+  }
+};
+
+/**
  * A partial file may only be resumed when the server can serve a byte range for
  * the exact same URL. Anything else risks appending to a file that does not belong
  * to this download.
@@ -120,6 +157,15 @@ const getResumableOffset = (url, temporaryPath) => {
     return 0;
   }
   if (hasRangeQuery(url)) {
+    return 0;
+  }
+  const meta = readResumeMeta(temporaryPath);
+  if (!meta || meta.url !== url) {
+    try {
+      fs.rmSync(temporaryPath, {force: true});
+    } catch (error) {
+      return 0;
+    }
     return 0;
   }
   return stats.size;
@@ -261,6 +307,9 @@ const downloadFile = (url, destination, onProgress, control, redirectsLeft = MAX
         console.error('Could not reset the partial download:', error);
       }
     }
+    if (!appending) {
+      writeResumeMeta(temporaryPath, url);
+    }
 
     const total = appending ? offset + contentLength : contentLength;
     let lastProgressAt = 0;
@@ -284,6 +333,7 @@ const downloadFile = (url, destination, onProgress, control, redirectsLeft = MAX
         } catch (error) {
           console.error('Could not remove the partial download:', error);
         }
+        removeResumeMeta(temporaryPath);
       };
       if (out.destroyed || out.closed) {
         remove();
@@ -339,6 +389,7 @@ const downloadFile = (url, destination, onProgress, control, redirectsLeft = MAX
           fail(new Error(`Could not finalize download: ${error.message}`));
           return;
         }
+        removeResumeMeta(temporaryPath);
         entry.discard = null;
         unregister();
         reportProgress(received, true);
