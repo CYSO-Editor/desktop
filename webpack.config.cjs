@@ -85,11 +85,11 @@ module.exports = [
             new CopyWebpackPlugin({
                 patterns: [
                     {
-                        from: 'node_modules/scratch-blocks/media',
+                        from: '../scratch-blocks/media',
                         to: 'static/blocks-media/default'
                     },
                     {
-                        from: 'node_modules/scratch-blocks/media',
+                        from: '../scratch-blocks/media',
                         to: 'static/blocks-media/high-contrast'
                     },
                     {
@@ -119,11 +119,11 @@ module.exports = [
                 'scratch-gui$': path.resolve(__dirname, 'node_modules/scratch-gui/src/index.js'),
                 'scratch-render-fonts$': path.resolve(__dirname, 'node_modules/scratch-gui/src/lib/tw-scratch-render-fonts'),
                 'scratch-vm$': path.resolve(__dirname, '../scratch-vm/src/index.js'),
-                'scratch-audio$': path.resolve(__dirname, '../scratch-vm/node_modules/scratch-audio/src/index.js'),
-                'scratch-render$': path.resolve(__dirname, 'node_modules/scratch-gui/node_modules/scratch-render/src/index.js'),
+                'scratch-audio$': path.resolve(__dirname, '../scratch-audio/src/index.js'),
+                'scratch-render$': path.resolve(__dirname, '../scratch-render/src/index.js'),
                 'scratch-paint$': path.resolve(__dirname, 'node_modules/scratch-paint/dist/scratch-paint.js'),
-                // Use scratch-gui's scratch-blocks, which supports procedure returns.
-                'scratch-blocks$': path.resolve(__dirname, '../scratch-gui/node_modules/scratch-blocks')
+                // Use the local scratch-blocks, which supports procedure returns.
+                'scratch-blocks$': path.resolve(__dirname, '../scratch-blocks/shim/vertical.js')
             }
         }
     },
