@@ -123,7 +123,8 @@ module.exports = [
                 'scratch-render$': path.resolve(__dirname, '../scratch-render/src/index.js'),
                 'scratch-paint$': path.resolve(__dirname, 'node_modules/scratch-paint/dist/scratch-paint.js'),
                 // Use the local scratch-blocks, which supports procedure returns.
-                'scratch-blocks$': path.resolve(__dirname, '../scratch-blocks/shim/vertical.js')
+                'scratch-blocks$': path.resolve(__dirname, '../scratch-blocks/shim/vertical.js'),
+                'ajv$': path.resolve(__dirname, '../scratch-parser/node_modules/ajv')
             }
         },
         resolveLoader: {
