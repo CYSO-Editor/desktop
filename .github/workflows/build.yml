@@ -12,6 +12,8 @@ name: Build
 #   scratch-blocks 与 scratch-storage 是 package.json 里声明的 ../ 本地依赖（缺了 npm install 直接失败）；
 #   scratch-render / scratch-audio / scratch-parser 被 webpack.config.cjs 以源码模式或别名引用
 #   （scratch-parser 还提供 node_modules/ajv 供 ajv$ 别名使用）。
+# 注意：scratch-storage / scratch-paint 的 package.json main 指向被 gitignore 的 dist，
+#   且未被 webpack alias 覆盖，故 CI 里必须显式 `npm run build`（见对应步骤），否则 Compile 会报模块解析失败。
 # 注意：直接克隆各兄弟仓库的默认分支最新提交，不锁定具体 SHA——构建结果会随兄弟仓库更新而变化，
 # 不复现固定版本。若需要可复现构建，请改回锁定具体提交（见历史提交）。
 
@@ -103,6 +105,14 @@ jobs:
       run: |
         mkdir -p "${{ github.workspace }}/../scratch-gui/node_modules"
         ln -sfn "${{ github.workspace }}/../scratch-paint" "${{ github.workspace }}/../scratch-gui/node_modules/scratch-paint"
+    - name: Build scratch-storage
+      # 依赖本地化后 @turbowarp/scratch-storage 指向 ../scratch-storage（原为自带预构建产物的 npm 包），
+      # 而本地仓库版的 package.json main 指向被 gitignore 的 dist/node/scratch-storage.js。
+      # 不构建时 webpack 会报 "Can't resolve '@turbowarp/scratch-storage'"（scratch-gui/src/lib/storage.js），
+      # 三个平台都会在 Compile 步失败，故必须先构建它（复刻本地已构建的布局）。
+      run: |
+        cd "${{ github.workspace }}/../scratch-storage"
+        npm run build
     - name: Compile
       run: npm run webpack:prod
     - name: Package
@@ -193,6 +203,14 @@ jobs:
       run: |
         mkdir -p "${{ github.workspace }}/../scratch-gui/node_modules"
         ln -sfn "${{ github.workspace }}/../scratch-paint" "${{ github.workspace }}/../scratch-gui/node_modules/scratch-paint"
+    - name: Build scratch-storage
+      # 依赖本地化后 @turbowarp/scratch-storage 指向 ../scratch-storage（原为自带预构建产物的 npm 包），
+      # 而本地仓库版的 package.json main 指向被 gitignore 的 dist/node/scratch-storage.js。
+      # 不构建时 webpack 会报 "Can't resolve '@turbowarp/scratch-storage'"（scratch-gui/src/lib/storage.js），
+      # 三个平台都会在 Compile 步失败，故必须先构建它（复刻本地已构建的布局）。
+      run: |
+        cd "${{ github.workspace }}/../scratch-storage"
+        npm run build
     - name: Compile
       run: npm run webpack:prod
     - name: Package
@@ -302,6 +320,16 @@ jobs:
         New-Item -ItemType Directory -Force -Path D:\scratch-gui\node_modules | Out-Null
         if (Test-Path D:\scratch-gui\node_modules\scratch-paint) { Remove-Item D:\scratch-gui\node_modules\scratch-paint -Force -Recurse }
         cmd /c "mklink /J D:\scratch-gui\node_modules\scratch-paint D:\scratch-paint"
+    - name: Build scratch-storage
+      shell: pwsh
+      # 依赖本地化后 @turbowarp/scratch-storage 指向 ../scratch-storage（原为自带预构建产物的 npm 包），
+      # 其 main 指向被 gitignore 的 dist/node/scratch-storage.js，未构建会导致 Compile 报
+      # "Can't resolve '@turbowarp/scratch-storage'"。故先构建（复刻本地已构建的布局）。
+      run: |
+        Push-Location D:\scratch-storage
+        npm run build
+        if ($LASTEXITCODE -ne 0) { throw "scratch-storage build failed" }
+        Pop-Location
     - name: Compile
       working-directory: D:\repo
       run: npm run webpack:prod
