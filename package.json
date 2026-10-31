@@ -9,7 +9,8 @@
   },
   "type": "commonjs",
   "scripts": {
-    "fetch": "node scripts/download-library-files.mjs && node scripts/download-packager.mjs && node scripts/prepare-extensions.mjs",
+    "fetch": "node scripts/download-library-files.mjs && node scripts/prepare-extensions.mjs",
+    "fetch:packager": "node scripts/build-packager.mjs",
     "webpack:compile": "cross-env NODE_ENV=production webpack --config webpack.config.cjs",
     "webpack:watch": "webpack --config webpack.config.cjs --watch",
     "webpack:prod": "cross-env NODE_ENV=production webpack --config webpack.config.cjs && node scripts/precompress-renderer.mjs",
@@ -86,9 +87,6 @@
       "src-main/**/*",
       "src-preload/**/*",
       "src-renderer/**/*",
-      "src-renderer/packager/standalone.html",
-      "src-renderer/packager/scaffolding/scaffolding-min.js",
-      "src-renderer/packager/scaffolding/scaffolding-full.js",
       "dist-renderer-webpack/**/*",
       "dist-library-files/**/*",
       "dist-extensions/**/*"
