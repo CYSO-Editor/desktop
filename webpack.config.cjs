@@ -7,6 +7,7 @@ const base = {
     devtool: process.env.NODE_ENV === 'production' ? false : 'cheap-source-map',
     target: 'web',
     resolve: {
+        extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
         modules: [
             path.resolve(__dirname, 'node_modules'),
             'node_modules',
@@ -22,6 +23,13 @@ const base = {
                 loader: 'babel-loader',
                 options: {
                     presets: ['@babel/preset-env', '@babel/preset-react']
+                }
+            },
+            {
+                test: /\.tsx?$/,
+                loader: 'babel-loader',
+                options: {
+                    presets: ['@babel/preset-env', '@babel/preset-react', '@babel/preset-typescript']
                 }
             },
             {
@@ -58,6 +66,26 @@ const base = {
                                 ]
                             }
                         }
+                    }
+                ]
+            },
+            {
+                test: /\.less$/,
+                use: [
+                    {
+                        loader: 'style-loader'
+                    },
+                    {
+                        loader: 'css-loader',
+                        options: {
+                            modules: true,
+                            importLoaders: 1,
+                            localIdentName: '[name]_[local]_[hash:base64:5]',
+                            camelCase: true
+                        }
+                    },
+                    {
+                        loader: 'less-loader'
                     }
                 ]
             }
@@ -109,6 +137,7 @@ module.exports = [
             })
         ],
         resolve: {
+            extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
             modules: [
                 path.resolve(__dirname, 'node_modules'),
                 'node_modules',
@@ -124,7 +153,11 @@ module.exports = [
                 'scratch-paint$': path.resolve(__dirname, 'node_modules/scratch-paint/dist/scratch-paint.js'),
                 // Use the local scratch-blocks, which supports procedure returns.
                 'scratch-blocks$': path.resolve(__dirname, '../scratch-blocks/shim/vertical.js'),
-                'ajv$': path.resolve(__dirname, '../scratch-parser/node_modules/ajv')
+                'ajv$': path.resolve(__dirname, '../scratch-parser/node_modules/ajv'),
+                'assets': path.resolve(__dirname, 'node_modules/scratch-gui/src/addons/addons/02agent/assets'),
+                'components': path.resolve(__dirname, 'node_modules/scratch-gui/src/addons/addons/02agent/shims/components'),
+                'hooks': path.resolve(__dirname, 'node_modules/scratch-gui/src/addons/addons/02agent/shims/hooks'),
+                'utils': path.resolve(__dirname, 'node_modules/scratch-gui/src/addons/addons/02agent/shims/utils')
             }
         },
         resolveLoader: {
@@ -145,6 +178,7 @@ module.exports = [
         },
         entry: './src-renderer-webpack/editor/addons/index.jsx',
         resolve: {
+            extensions: ['.js', '.jsx', '.ts', '.tsx', '.json'],
             modules: [
                 path.resolve(__dirname, 'node_modules'),
                 'node_modules'

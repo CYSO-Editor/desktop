@@ -1,7 +1,7 @@
 {
   "name": "cysoeditor-desktop",
   "description": "CYSOEditor - Visual programming editor with Aurora theme, CYSO Core, and high-performance compiler engine.",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "license": "GPL-3.0",
   "author": {
     "email": "cy_studio_001@163.com",
@@ -19,6 +19,14 @@
     "electron:package:dir": "electron-builder --dir"
   },
   "dependencies": {
+    "@turbowarp/json": "0.1.2",
+    "@turbowarp/jszip": "3.12.0",
+    "@turbowarp/nanolog": "1.0.1",
+    "@turbowarp/scratch-l10n": "3.1001.202405101234",
+    "@turbowarp/scratch-storage": "../scratch-storage",
+    "@turbowarp/scratch-svg-renderer": "1.1.0",
+    "@turbowarp/startaudiocontext": "1.0.0",
+    "cyso-core": "../CYSO-Core",
     "graceful-fs": "^4.2.11",
     "prop-types": "^15.8.1",
     "react": "^16.0.0",
@@ -26,21 +34,14 @@
     "react-redux": "^5.0.7",
     "redux": "^3.7.2",
     "scratch-blocks": "../scratch-blocks",
-    "semver": "^7.7.3",
     "scratch-paint": "../scratch-paint",
-    "cyso-core": "../CYSO-Core",
-    "@turbowarp/json": "0.1.2",
-    "@turbowarp/jszip": "3.12.0",
-    "@turbowarp/nanolog": "1.0.1",
-    "@turbowarp/scratch-l10n": "3.1001.202405101234",
-    "@turbowarp/scratch-storage": "../scratch-storage",
-    "@turbowarp/scratch-svg-renderer": "1.1.0",
-    "@turbowarp/startaudiocontext": "1.0.0"
+    "semver": "^7.7.3"
   },
   "devDependencies": {
     "@babel/core": "^7.28.4",
     "@babel/preset-env": "^7.12.16",
     "@babel/preset-react": "^7.13.13",
+    "@babel/preset-typescript": "^7.29.7",
     "@electron/fuses": "^2.0.0",
     "@turbowarp/extensions": "../extensions",
     "adm-zip": "^0.5.16",
@@ -52,6 +53,8 @@
     "electron": "^40.0.0",
     "electron-builder": "^26.3.5",
     "file-loader": "^6.2.0",
+    "less": "^4.9.1",
+    "less-loader": "^7.3.0",
     "postcss": "^8.4.13",
     "postcss-import": "^14.0.0",
     "postcss-loader": "^4.2.0",
