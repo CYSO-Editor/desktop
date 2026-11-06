@@ -23,6 +23,7 @@ const ExtensionDocumentationWindow = require('./extension-documentation.js');
 const {getExtensionScript} = require('../extension-cache');
 const CYSOCore = require('cyso-core');
 const { Action } = CYSOCore;
+const SecurityPromptWindow = require('./security-prompt');
 
 const TYPE_FILE = 'file';
 const TYPE_URL = 'url';
@@ -113,7 +114,7 @@ class OpenedFile {
     }
 
     if (this.type === TYPE_SAMPLE) {
-      const sampleRoot = path.resolve(__dirname, '../../dist-extensions/samples/');
+      const sampleRoot = path.join(path.resolve(__dirname, '../../dist-extensions/samples'), '/');
       const resolvedPath = path.join(sampleRoot, this.path);
       if (resolvedPath.startsWith(sampleRoot)) {
         const compressedPath = `${resolvedPath}.br`;
@@ -419,7 +420,7 @@ class EditorWindow extends ProjectRunningWindow {
     });
 
     this.ipc.handle('set-locale', async (event, locale) => {
-      if (settings.locale !== locale) {
+      if (typeof locale === 'string' && settings.locale !== locale) {
         settings.locale = locale;
         updateLocale(locale);
 
@@ -485,6 +486,10 @@ class EditorWindow extends ProjectRunningWindow {
       };
     });
 
+    this.ipc.handle('drop-permissions', () => {
+      SecurityPromptWindow.dropPermissions(this.window);
+    });
+
     this.ipc.handle('show-open-file-picker', async (event, options) => {
       const opts = options || {};
       const filters = opts.filters || [
@@ -494,6 +499,7 @@ class EditorWindow extends ProjectRunningWindow {
         }
       ];
       const properties = opts.properties || ['openFile'];
+
       const result = await dialog.showOpenDialog(this.window, {
         properties,
         defaultPath: settings.lastDirectory,
@@ -523,8 +529,12 @@ class EditorWindow extends ProjectRunningWindow {
     });
 
     this.ipc.handle('show-save-file-picker', async (event, suggestedName) => {
+      const lastDirectory = path.join(settings.lastDirectory, '/');
+      const joinedPath = path.join(lastDirectory, suggestedName);
+      const safeJoinedPath = joinedPath.startsWith(lastDirectory) ? joinedPath : lastDirectory;
+
       const result = await dialog.showSaveDialog(this.window, {
-        defaultPath: path.join(settings.lastDirectory, suggestedName),
+        defaultPath: safeJoinedPath,
         filters: [
           {
             name: 'Scratch 3 Project',

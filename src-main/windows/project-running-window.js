@@ -182,6 +182,7 @@ class ProjectRunningWindow extends AbstractWindow {
       // revealing any metadata that they couldn't already have access to.
       return callback({
         requestHeaders: {
+          ...details.requestHeaders,
           referer: 'https://cysoeditor.pages.dev/referer.html'
         }
       });

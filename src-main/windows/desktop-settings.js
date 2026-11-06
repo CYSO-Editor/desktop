@@ -1,3 +1,4 @@
+const fsPromises = require('fs/promises');
 const {app, shell} = require('electron');
 const AbstractWindow = require('./abstract');
 const {translate, getStrings, getLocale} = require('../l10n');
@@ -31,7 +32,8 @@ class DesktopSettingsWindow extends AbstractWindow {
           richPresenceAvailable: RichPresence.isAvailable(),
           richPresence: settings.richPresence,
           renderGpuMode: settings.renderGpuMode,
-          renderResolutionCap: settings.renderResolutionCap
+          renderResolutionCap: settings.renderResolutionCap,
+          crashDumps: settings.crashDumps
         }
       };
     });
@@ -75,6 +77,12 @@ class DesktopSettingsWindow extends AbstractWindow {
       // Imported late due to circular dependency
       const openExternal = require('../open-external');
       openExternal(RELEASES_PAGE);
+    this.ipc.handle('set-crash-dumps', async (event, crashDumps) => {
+      settings.crashDumps = crashDumps;
+      await settings.save();
+    });
+
+
     });
 
     this.ipc.handle('enumerate-media-devices', async () => {
@@ -153,6 +161,16 @@ class DesktopSettingsWindow extends AbstractWindow {
         AbstractWindow.settingsChanged();
         await settings.save();
       }
+    });
+
+    this.ipc.handle('open-crash-dumps', async () => {
+      const crashDumps = app.getPath('crashDumps');
+      // folder may not exist yet if setting was just turned on but app not restarted yet
+      await fsPromises.mkdir(crashDumps, {
+        recursive: true
+      });
+      shell.showItemInFolder(crashDumps);
+
     });
 
     this.loadURL('tw-desktop-settings://./desktop-settings.html');

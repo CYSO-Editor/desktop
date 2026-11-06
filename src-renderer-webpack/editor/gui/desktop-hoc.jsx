@@ -121,6 +121,7 @@ const DesktopHOC = function (WrappedComponent) {
         title: ''
       };
       this.handleUpdateProjectTitle = this.handleUpdateProjectTitle.bind(this);
+      this.handleRuntimeDisposed = this.handleRuntimeDisposed.bind(this);
 
       this.messages = FALLBACK_MESSAGES;
       requestLocaleState(this.props.locale).then(state => {
@@ -158,7 +159,10 @@ const DesktopHOC = function (WrappedComponent) {
           data: buffer
         })));
 
-      // set-locale re-mounts this component, but the project must only be loaded once.
+      this.props.vm.runtime.on('RUNTIME_DISPOSED', this.handleRuntimeDisposed);
+
+      // This component is re-mounted when the locale changes, but we only want to load
+      // the initial project once.
       if (initialLoadStarted) {
         return;
       }
@@ -279,6 +283,10 @@ const DesktopHOC = function (WrappedComponent) {
         this.unsubscribeUpdateNotice();
         this.unsubscribeUpdateNotice = null;
       }
+      this.props.vm.runtime.off('RUNTIME_DISPOSED', this.handleRuntimeDisposed);
+    }
+    handleRuntimeDisposed () {
+      EditorPreload.dropPermissions();
     }
     handleUpdateProjectTitle (newTitle) {
       this.setState({
@@ -364,7 +372,11 @@ const DesktopHOC = function (WrappedComponent) {
     onSetUpdateAvailableVersion: PropTypes.func.isRequired,
     onShowErrorModal: PropTypes.func.isRequired,
     vm: PropTypes.shape({
-      loadProject: PropTypes.func.isRequired
+      loadProject: PropTypes.func.isRequired,
+      runtime: PropTypes.shape({
+        on: PropTypes.func.isRequired,
+        off: PropTypes.func.isRequired
+      }).isRequired
     }).isRequired
   };
 

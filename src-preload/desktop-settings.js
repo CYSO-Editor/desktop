@@ -15,7 +15,9 @@ contextBridge.exposeInMainWorld('DesktopSettingsPreload', {
   setSpellchecker: (spellchecker) => ipcRenderer.invoke('set-spellchecker', spellchecker),
   setExitFullscreenOnEscape: (exitFullscreenOnEscape) => ipcRenderer.invoke('set-exit-fullscreen-on-escape', exitFullscreenOnEscape),
   setRichPresence: (richPresence) => ipcRenderer.invoke('set-rich-presence', richPresence),
+  setCrashDumps: (crashDumps) => ipcRenderer.invoke('set-crash-dumps', crashDumps),
   openUserData: () => ipcRenderer.invoke('open-user-data'),
+  openCrashDumps: () => ipcRenderer.invoke('open-crash-dumps'),
   setRenderGpuMode: (renderGpuMode) => ipcRenderer.invoke('set-render-gpu-mode', renderGpuMode),
   setRenderResolutionCap: (renderResolutionCap) => ipcRenderer.invoke('set-render-resolution-cap', renderResolutionCap),
   /**

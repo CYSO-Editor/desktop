@@ -42,7 +42,7 @@
     "@babel/preset-env": "^7.12.16",
     "@babel/preset-react": "^7.13.13",
     "@babel/preset-typescript": "^7.29.7",
-    "@electron/fuses": "^2.0.0",
+    "@electron/fuses": "^2.1.2",
     "@turbowarp/extensions": "../extensions",
     "adm-zip": "^0.5.16",
     "autoprefixer": "^9.8.8",
@@ -50,8 +50,8 @@
     "copy-webpack-plugin": "^6.4.1",
     "cross-env": "^10.1.0",
     "css-loader": "^1.0.1",
-    "electron": "^40.0.0",
-    "electron-builder": "^26.3.5",
+    "electron": "43.8.4",
+    "electron-builder": "^26.18.0",
     "file-loader": "^6.2.0",
     "less": "^4.9.1",
     "less-loader": "^7.3.0",
@@ -210,7 +210,10 @@
     },
     "snap": {
       "summary": "CYSOEditor - Visual programming editor with Aurora theme & CYSO Core",
-      "allowNativeWayland": true,
+      "allowNativeWayland": false,
+      "executableArgs": [
+        "--ozone-platform=x11"
+      ],
       "plugs": [
         "default",
         "camera",

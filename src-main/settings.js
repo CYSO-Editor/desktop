@@ -135,11 +135,33 @@ class Settings {
   get ignoredUpdateVersions () {
     const versions = this.data.ignoredUpdateVersions;
     return Array.isArray(versions) ? versions : [];
+
   }
   set ignoredUpdateVersions (ignoredUpdateVersions) {
     this.data.ignoredUpdateVersions = Array.isArray(ignoredUpdateVersions) ?
       ignoredUpdateVersions.filter((item) => typeof item === 'string') :
       [];
+  }
+
+  get crashDumps () {
+    return this.data.crashDumps || 'none';
+  }
+  set crashDumps (crashDumps) {
+    this.data.crashDumps = crashDumps;
+  }
+
+  get ignoredUpdate () {
+    return this.data.ignoredUpdate || null;
+  }
+  set ignoredUpdate (ignoredUpdate) {
+    this.data.ignoredUpdate = ignoredUpdate;
+  }
+
+  get ignoredUpdateUntil () {
+    return this.data.ignoredUpdateUntil || 0;
+  }
+  set ignoredUpdateUntil (ignoredUpdateUntil) {
+    this.data.ignoredUpdateUntil = ignoredUpdateUntil;
   }
 
   /**

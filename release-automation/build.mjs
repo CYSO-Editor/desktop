@@ -19,8 +19,7 @@ const ELECTRON_26_FINAL = '26.6.10';
 const ELECTRON_32_FINAL = '32.3.3';
 
 // Electron 37 is the last version to support macOS 11
-// TODO: 37 is still being updates, we should keep bumping this
-const ELECTRON_37_FINAL = '37.8.0';
+const ELECTRON_37_FINAL = '37.10.3';
 
 /**
  * @returns {Date}
@@ -103,7 +102,8 @@ const flipFuses = async (context) => {
   /** @type {import('@electron/fuses').FuseV1Config} */
   const newFuses = {
     version: electronFuses.FuseVersion.V1,
-    strictlyRequireAllFuses: true,
+    // TODO: When electron-builder updates @electron/fuses to v2.x.x, we can should this in all cases again
+    strictlyRequireAllFuses: electronMajorVersion < 41,
   };
 
   // We don't use this option, but we have to set it explicitly due to strictlyRequireAllFuses.
@@ -127,6 +127,13 @@ const flipFuses = async (context) => {
   if (electronMajorVersion >= 29) {
     // We should try to disable this in the future but currently it breaks migrate.html.
     newFuses[electronFuses.FuseV1Options.GrantFileProtocolExtraPrivileges] = true;
+  }
+
+  if (electronMajorVersion >= 41) {
+    // This is the default, which will preserve to maximize performance for anything using WASM (eg. machine learning libraries)
+    // We already assume the web content process is fully compromised by malicious JS so letting WASM skip some bounds checks
+    // isn't a huge concern for us.
+    newFuses[electronFuses.FuseV1Options.WasmTrapHandlers] = true;
   }
 
   await context.packager.addElectronFuses(context, newFuses);
